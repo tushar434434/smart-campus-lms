@@ -1,0 +1,8 @@
+node_modules/
+dist/
+
+# Generated TypeScript output
+src/**/*.js
+src/**/*.d.ts
+src/**/*.js.map
+src/**/*.d.ts.map

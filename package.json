@@ -4,13 +4,13 @@
   "description": "Smart Campus LMS backend",
   "main": "dist/server.js",
   "scripts": {
-  "dev": "tsx watch src/server.ts",
-  "build": "tsc",
-  "start": "node dist/server.js",
-  "lint": "eslint .",
-  "format": "prettier --write .",
-  "format:check": "prettier --check ."
-},
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -18,11 +18,13 @@
   "dependencies": {
     "@types/node": "^26.6.3",
     "fastify": "^5.12.5",
-    "tsx": "^4.23.15"
+    "tsx": "^4.23.15",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "eslint": "^10.11.0",
+    "globals": "^17.13.0",
     "prettier": "^3.9.9",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.71.0"

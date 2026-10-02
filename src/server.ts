@@ -1,15 +1,18 @@
-import { buildApp } from "./app.js";
+import { buildApp } from './app.js';
+import { config } from './config/env.js';
 
 const app = buildApp();
 
 const start = async () => {
   try {
     await app.listen({
-      port: 3000,
-      host: "0.0.0.0",
+      port: config.port,
+      host: '0.0.0.0',
     });
 
-    console.log("Server running on http://localhost:3000");
+    console.log(
+      `Server running on port ${config.port} in ${config.nodeEnv} mode`,
+    );
   } catch (error) {
     app.log.error(error);
     process.exit(1);

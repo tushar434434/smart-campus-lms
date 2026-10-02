@@ -1,14 +1,14 @@
-import Fastify from "fastify";
+import Fastify from 'fastify';
 
 export function buildApp() {
   const app = Fastify({
     logger: true,
   });
 
-  app.get("/health", async () => {
+  app.get('/health', async () => {
     return {
-      status: "ok",
-      service: "smart-campus-lms",
+      status: 'ok',
+      service: 'smart-campus-lms',
     };
   });
 
