@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import { successResponse } from './utils/response.js';
 import { registerErrorHandler } from './errors/error-handler.js';
 
 export function buildApp() {
@@ -9,10 +10,10 @@ export function buildApp() {
   registerErrorHandler(app);
 
   app.get('/health', async () => {
-    return {
+    return successResponse('Service is healthy', {
       status: 'ok',
       service: 'smart-campus-lms',
-    };
+    });
   });
 
   return app;

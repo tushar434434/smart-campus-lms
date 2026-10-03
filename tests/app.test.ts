@@ -12,10 +12,13 @@ describe('Smart Campus LMS API', () => {
     });
 
     expect(response.statusCode).toBe(200);
-
     expect(response.json()).toEqual({
-      status: 'ok',
-      service: 'smart-campus-lms',
+      success: true,
+      message: 'Service is healthy',
+      data: {
+        status: 'ok',
+        service: 'smart-campus-lms',
+      },
     });
 
     await app.close();
