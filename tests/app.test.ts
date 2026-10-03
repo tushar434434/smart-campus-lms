@@ -8,6 +8,63 @@ describe('Smart Campus LMS API', () => {
   afterEach(async () => {
     await app.close();
   });
+  it('should create a course with an ID and timestamp', async () => {
+    app = buildApp();
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/courses',
+      payload: {
+        title: 'Operating Systems',
+        code: 'CS302',
+        credits: 4,
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+
+    const body = response.json();
+
+    expect(body.success).toBe(true);
+    expect(body.data.id).toBeDefined();
+    expect(body.data.createdAt).toBeDefined();
+    expect(body.data.title).toBe('Operating Systems');
+  });
+
+  it('should retrieve courses', async () => {
+    app = buildApp();
+
+    await app.inject({
+      method: 'POST',
+      url: '/courses',
+      payload: {
+        title: 'Database Management Systems',
+        code: 'CS303',
+        credits: 4,
+      },
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/courses',
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    expect(response.json()).toMatchObject({
+      success: true,
+      message: 'Courses retrieved successfully',
+    });
+
+    expect(response.json().data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          title: 'Database Management Systems',
+          code: 'CS303',
+        }),
+      ]),
+    );
+  });
 
   it('should return healthy status', async () => {
     app = buildApp();
