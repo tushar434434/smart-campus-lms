@@ -8,6 +8,72 @@ describe('Smart Campus LMS API', () => {
   afterEach(async () => {
     await app.close();
   });
+  it('should reject invalid course update data', async () => {
+    app = buildApp();
+
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/courses',
+      payload: {
+        title: 'Operating Systems',
+        code: 'CS306',
+        credits: 4,
+      },
+    });
+
+    const createdCourse = createResponse.json().data;
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: `/courses/${createdCourse.id}`,
+      payload: {
+        credits: 10,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
+  });
+  it('should reject an empty course update', async () => {
+    app = buildApp();
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/courses/some-course-id',
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
+  });
+  it('should update a course successfully', async () => {
+    app = buildApp();
+
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/courses',
+      payload: {
+        title: 'Database Management Systems',
+        code: 'CS305',
+        credits: 3,
+      },
+    });
+
+    const createdCourse = createResponse.json().data;
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: `/courses/${createdCourse.id}`,
+      payload: {
+        credits: 5,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().success).toBe(true);
+    expect(response.json().data.credits).toBe(5);
+    expect(response.json().data.title).toBe('Database Management Systems');
+  });
   it('should retrieve a course by ID', async () => {
     app = buildApp();
 

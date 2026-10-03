@@ -10,5 +10,11 @@ export const createCourseSchema = z.object({
 
   credits: z.number().int().min(1).max(6),
 });
+export const updateCourseSchema = createCourseSchema
+  .partial()
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one field must be provided',
+  });
 
+export type UpdateCourseInput = z.infer<typeof updateCourseSchema>;
 export type CreateCourseInput = z.infer<typeof createCourseSchema>;

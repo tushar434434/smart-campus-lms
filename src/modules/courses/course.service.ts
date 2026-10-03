@@ -1,5 +1,5 @@
 import type { CreateCourseInput } from './course.schema.js';
-
+import type { UpdateCourseInput } from './course.schema.js';
 export interface Course extends CreateCourseInput {
   id: string;
   createdAt: string;
@@ -24,4 +24,18 @@ export function getCourses(): Course[] {
 }
 export function getCourseById(id: string): Course | undefined {
   return courses.find((course) => course.id === id);
+}
+export function updateCourse(
+  id: string,
+  input: UpdateCourseInput,
+): Course | undefined {
+  const course = courses.find((course) => course.id === id);
+
+  if (!course) {
+    return undefined;
+  }
+
+  Object.assign(course, input);
+
+  return course;
 }
