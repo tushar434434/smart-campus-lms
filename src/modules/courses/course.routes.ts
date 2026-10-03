@@ -1,0 +1,24 @@
+import type { FastifyInstance } from 'fastify';
+import { AppError } from '../../errors/app-error.js';
+import { successResponse } from '../../utils/response.js';
+import { createCourseSchema } from './course.schema.js';
+
+export async function courseRoutes(app: FastifyInstance) {
+  app.post('/courses', async (request, reply) => {
+    const result = createCourseSchema.safeParse(request.body);
+
+    if (!result.success) {
+      throw new AppError(
+        result.error.issues
+          .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+          .join(', '),
+        400,
+        'VALIDATION_ERROR',
+      );
+    }
+
+    return reply
+      .status(201)
+      .send(successResponse('Course created successfully', result.data));
+  });
+}
