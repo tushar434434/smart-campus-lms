@@ -22,3 +22,6 @@ export function createCourse(input: CreateCourseInput): Course {
 export function getCourses(): Course[] {
   return courses;
 }
+export function getCourseById(id: string): Course | undefined {
+  return courses.find((course) => course.id === id);
+}
