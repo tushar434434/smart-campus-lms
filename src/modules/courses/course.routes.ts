@@ -2,8 +2,10 @@ import type { FastifyInstance } from 'fastify';
 import { AppError } from '../../errors/app-error.js';
 import { successResponse } from '../../utils/response.js';
 import { createCourseSchema, updateCourseSchema } from './course.schema.js';
+
 import {
   createCourse,
+  deleteCourse,
   getCourseById,
   getCourses,
   updateCourse,
@@ -69,4 +71,20 @@ export async function courseRoutes(app: FastifyInstance) {
 
     return successResponse('Course updated successfully', course);
   });
+
+  // Delete a course
+  app.delete<{ Params: { id: string } }>(
+    '/courses/:id',
+    async (request) => {
+      const deleted = deleteCourse(request.params.id);
+
+      if (!deleted) {
+        throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
+      }
+
+      return successResponse('Course deleted successfully', {
+        id: request.params.id,
+      });
+    },
+  );
 }

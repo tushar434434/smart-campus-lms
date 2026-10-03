@@ -39,3 +39,14 @@ export function updateCourse(
 
   return course;
 }
+export function deleteCourse(id: string): boolean {
+  const courseIndex = courses.findIndex((course) => course.id === id);
+
+  if (courseIndex === -1) {
+    return false;
+  }
+
+  courses.splice(courseIndex, 1);
+
+  return true;
+}

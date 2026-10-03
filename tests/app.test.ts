@@ -8,6 +8,50 @@ describe('Smart Campus LMS API', () => {
   afterEach(async () => {
     await app.close();
   });
+  it('should return 404 when deleting a nonexistent course', async () => {
+    app = buildApp();
+
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/courses/nonexistent-id',
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json().success).toBe(false);
+    expect(response.json().error.code).toBe('COURSE_NOT_FOUND');
+  });
+  it('should delete a course successfully', async () => {
+    app = buildApp();
+
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/courses',
+      payload: {
+        title: 'Computer Networks',
+        code: 'CS307',
+        credits: 4,
+      },
+    });
+
+    const createdCourse = createResponse.json().data;
+
+    const response = await app.inject({
+      method: 'DELETE',
+      url: `/courses/${createdCourse.id}`,
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().success).toBe(true);
+    expect(response.json().message).toBe('Course deleted successfully');
+    expect(response.json().data.id).toBe(createdCourse.id);
+
+    const getResponse = await app.inject({
+      method: 'GET',
+      url: `/courses/${createdCourse.id}`,
+    });
+
+    expect(getResponse.statusCode).toBe(404);
+  });
   it('should reject invalid course update data', async () => {
     app = buildApp();
 
@@ -33,6 +77,20 @@ describe('Smart Campus LMS API', () => {
 
     expect(response.statusCode).toBe(400);
     expect(response.json().error.code).toBe('VALIDATION_ERROR');
+  });
+  it('should return 404 when updating a nonexistent course', async () => {
+    app = buildApp();
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/courses/nonexistent-id',
+      payload: {
+        credits: 5,
+      },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error.code).toBe('COURSE_NOT_FOUND');
   });
   it('should reject an empty course update', async () => {
     app = buildApp();
