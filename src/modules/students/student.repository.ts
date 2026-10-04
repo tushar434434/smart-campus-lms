@@ -7,6 +7,16 @@ export interface Student extends CreateStudentInput {
 }
 
 export class InMemoryStudentRepository implements StudentRepository {
+  delete(id: string): boolean {
+    const index = this.students.findIndex((student) => student.id === id);
+
+    if (index === -1) {
+      return false;
+    }
+
+    this.students.splice(index, 1);
+    return true;
+  }
   update(id: string, input: Partial<CreateStudentInput>): Student | undefined {
     const studentIndex = this.students.findIndex(
       (student) => student.id === id,

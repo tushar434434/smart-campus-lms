@@ -12,6 +12,45 @@ describe('Student API', () => {
   afterEach(async () => {
     await app.close();
   });
+  it('should delete a student successfully', async () => {
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/students',
+      payload: {
+        name: 'Delete Student',
+        email: 'delete.student@example.com',
+        enrollmentNumber: 'DEL2026101',
+        department: 'CSE',
+        semester: 5,
+      },
+    });
+
+    const studentId = createResponse.json().data.id;
+
+    const response = await app.inject({
+      method: 'DELETE',
+      url: `/students/${studentId}`,
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(response.body).toBe('');
+
+    const getResponse = await app.inject({
+      method: 'GET',
+      url: `/students/${studentId}`,
+    });
+
+    expect(getResponse.statusCode).toBe(404);
+  });
+  it('should return 404 when deleting a non-existent student', async () => {
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/students/non-existent-id',
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error.code).toBe('STUDENT_NOT_FOUND');
+  });
   it('should update a student successfully', async () => {
     const createResponse = await app.inject({
       method: 'POST',

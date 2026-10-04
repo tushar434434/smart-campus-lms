@@ -14,9 +14,18 @@ import {
   getStudentById,
   listStudents,
   updateStudent,
+  deleteStudent,
 } from './student.service.js';
 
 export async function studentRoutes(app: FastifyInstance) {
+  app.delete<{ Params: { id: string } }>(
+    '/students/:id',
+    async (request, reply) => {
+      deleteStudent(request.params.id);
+
+      return reply.status(204).send();
+    },
+  );
   // Register a student
   app.post('/students', async (request, reply) => {
     const result = createStudentSchema.safeParse(request.body);

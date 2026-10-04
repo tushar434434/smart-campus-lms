@@ -12,6 +12,15 @@ import type { StudentRepository } from './student.repository.interface.js';
 
 export function createStudentService(repository: StudentRepository) {
   return {
+    deleteStudent(id: string) {
+      const deleted = repository.delete(id);
+
+      if (!deleted) {
+        throw new AppError('Student not found', 404, 'STUDENT_NOT_FOUND');
+      }
+
+      return true;
+    },
     createStudent(input: CreateStudentInput) {
       const existingEmail = repository.findByEmail(input.email);
 
@@ -107,5 +116,10 @@ const defaultStudentService = createStudentService(
   new InMemoryStudentRepository(),
 );
 
-export const { createStudent, getStudentById, listStudents, updateStudent } =
-  defaultStudentService;
+export const {
+  createStudent,
+  getStudentById,
+  listStudents,
+  updateStudent,
+  deleteStudent,
+} = defaultStudentService;

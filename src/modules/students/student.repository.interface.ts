@@ -7,6 +7,7 @@ export interface StudentRepository {
   findById(id: string): Student | undefined;
 
   findByEmail(email: string): Student | undefined;
+  delete(id: string): boolean;
 
   findByEnrollmentNumber(enrollmentNumber: string): Student | undefined;
   update(
