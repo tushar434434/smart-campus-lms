@@ -5,6 +5,11 @@ const app = buildApp();
 
 const start = async () => {
   try {
+    await app.ready();
+
+    console.log('Registered routes:');
+    console.log(app.printRoutes());
+
     await app.listen({
       port: config.port,
       host: '0.0.0.0',
