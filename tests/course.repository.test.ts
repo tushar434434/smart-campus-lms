@@ -22,15 +22,24 @@ describe('Course Repository', () => {
   });
 
   it('should retrieve all courses', () => {
-    const course = repository.create({
-      title: 'Operating Systems',
-      code: 'CS302',
+    repository.create({
+      title: 'Database Management Systems',
+      code: 'CS303',
       credits: 4,
     });
 
-    expect(repository.findAll()).toContainEqual(course);
-  });
+    const result = repository.findAll({
+      page: 1,
+      limit: 10,
+    });
 
+    expect(result.courses).toHaveLength(1);
+    expect(result.total).toBe(1);
+    expect(result.courses[0]).toMatchObject({
+      title: 'Database Management Systems',
+      code: 'CS303',
+    });
+  });
   it('should retrieve a course by ID', () => {
     const course = repository.create({
       title: 'Operating Systems',

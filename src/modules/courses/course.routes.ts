@@ -1,7 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 import { AppError } from '../../errors/app-error.js';
 import { successResponse } from '../../utils/response.js';
-import { createCourseSchema, updateCourseSchema } from './course.schema.js';
+import {
+  createCourseSchema,
+  updateCourseSchema,
+  listCoursesSchema,
+} from './course.schema.js';
 
 import {
   createCourse,
@@ -34,8 +38,23 @@ export async function courseRoutes(app: FastifyInstance) {
   });
 
   // Retrieve all courses
-  app.get('/courses', async () => {
-    return successResponse('Courses retrieved successfully', getCourses());
+  // Retrieve courses with pagination and filtering
+  app.get('/courses', async (request) => {
+    const result = listCoursesSchema.safeParse(request.query);
+
+    if (!result.success) {
+      throw new AppError(
+        result.error.issues
+          .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+          .join(', '),
+        400,
+        'VALIDATION_ERROR',
+      );
+    }
+
+    const courses = getCourses(result.data);
+
+    return successResponse('Courses retrieved successfully', courses);
   });
 
   // Retrieve a course by ID

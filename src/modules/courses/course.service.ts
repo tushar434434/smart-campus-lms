@@ -3,6 +3,7 @@ import { AppError } from '../../errors/app-error.js';
 import type {
   CreateCourseInput,
   UpdateCourseInput,
+  ListCoursesInput,
 } from './course.schema.js';
 
 import { InMemoryCourseRepository } from './course.repository.js';
@@ -15,8 +16,18 @@ export function createCourseService(repository: CourseRepository) {
       return repository.create(input);
     },
 
-    getCourses() {
-      return repository.findAll();
+    getCourses(input: ListCoursesInput) {
+      const result = repository.findAll(input);
+
+      return {
+        courses: result.courses,
+        pagination: {
+          page: input.page,
+          limit: input.limit,
+          total: result.total,
+          totalPages: Math.ceil(result.total / input.limit),
+        },
+      };
     },
 
     getCourseById(id: string) {

@@ -205,7 +205,9 @@ describe('Smart Campus LMS API', () => {
       message: 'Courses retrieved successfully',
     });
 
-    expect(response.json().data).toEqual(
+    const data = response.json().data;
+
+    expect(data.courses).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           title: 'Database Management Systems',
@@ -213,6 +215,13 @@ describe('Smart Campus LMS API', () => {
         }),
       ]),
     );
+
+    expect(data.pagination).toMatchObject({
+      page: 1,
+      limit: 10,
+      total: data.courses.length,
+      totalPages: 1,
+    });
   });
 
   it('should return healthy status', async () => {

@@ -1,4 +1,8 @@
-import type { CreateCourseInput, UpdateCourseInput } from './course.schema.js';
+import type {
+  CreateCourseInput,
+  UpdateCourseInput,
+  ListCoursesInput,
+} from './course.schema.js';
 
 import type { CourseRepository } from './course.repository.interface.js';
 
@@ -22,8 +26,45 @@ export class InMemoryCourseRepository implements CourseRepository {
     return course;
   }
 
-  findAll(): Course[] {
-    return this.courses;
+  findAll(input: ListCoursesInput): {
+    courses: Course[];
+    total: number;
+  } {
+    const { page, limit, search, credits } = input;
+
+    let filteredCourses = this.courses;
+
+    // Search by course title or code
+    if (search) {
+      const searchTerm = search.toLowerCase();
+
+      filteredCourses = filteredCourses.filter(
+        (course) =>
+          course.title.toLowerCase().includes(searchTerm) ||
+          course.code.toLowerCase().includes(searchTerm),
+      );
+    }
+
+    // Filter by credits
+    if (credits !== undefined) {
+      filteredCourses = filteredCourses.filter(
+        (course) => course.credits === credits,
+      );
+    }
+
+    // Total matching courses before pagination
+    const total = filteredCourses.length;
+
+    // Calculate pagination offset
+    const startIndex = (page - 1) * limit;
+
+    // Return only the requested page
+    const courses = filteredCourses.slice(startIndex, startIndex + limit);
+
+    return {
+      courses,
+      total,
+    };
   }
 
   findById(id: string): Course | undefined {
