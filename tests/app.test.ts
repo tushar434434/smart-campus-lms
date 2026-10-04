@@ -8,6 +8,39 @@ describe('Smart Campus LMS API', () => {
   afterEach(async () => {
     await app.close();
   });
+  it('should reject an invalid page number', async () => {
+    app = buildApp();
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/courses?page=0',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
+  });
+  it('should reject a limit greater than 100', async () => {
+    app = buildApp();
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/courses?limit=101',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
+  });
+  it('should reject invalid course credits filter', async () => {
+    app = buildApp();
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/courses?credits=10',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
+  });
   it('should return 404 when deleting a nonexistent course', async () => {
     app = buildApp();
 

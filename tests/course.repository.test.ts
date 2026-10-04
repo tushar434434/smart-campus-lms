@@ -8,7 +8,78 @@ describe('Course Repository', () => {
   beforeEach(() => {
     repository = new InMemoryCourseRepository();
   });
+  it('should return courses according to pagination', () => {
+    repository.create({
+      title: 'Operating Systems',
+      code: 'CS301',
+      credits: 4,
+    });
 
+    repository.create({
+      title: 'Database Management Systems',
+      code: 'CS302',
+      credits: 3,
+    });
+
+    repository.create({
+      title: 'Computer Networks',
+      code: 'CS303',
+      credits: 4,
+    });
+
+    const result = repository.findAll({
+      page: 2,
+      limit: 2,
+    });
+
+    expect(result.courses).toHaveLength(1);
+    expect(result.total).toBe(3);
+    expect(result.courses[0].code).toBe('CS303');
+  });
+  it('should search courses by title', () => {
+    repository.create({
+      title: 'Operating Systems',
+      code: 'CS301',
+      credits: 4,
+    });
+
+    repository.create({
+      title: 'Database Management Systems',
+      code: 'CS302',
+      credits: 3,
+    });
+
+    const result = repository.findAll({
+      page: 1,
+      limit: 10,
+      search: 'database',
+    });
+
+    expect(result.total).toBe(1);
+    expect(result.courses[0].title).toBe('Database Management Systems');
+  });
+  it('should filter courses by credits', () => {
+    repository.create({
+      title: 'Operating Systems',
+      code: 'CS301',
+      credits: 4,
+    });
+
+    repository.create({
+      title: 'Database Management Systems',
+      code: 'CS302',
+      credits: 3,
+    });
+
+    const result = repository.findAll({
+      page: 1,
+      limit: 10,
+      credits: 4,
+    });
+
+    expect(result.total).toBe(1);
+    expect(result.courses[0].credits).toBe(4);
+  });
   it('should create a course with an ID and timestamp', () => {
     const course = repository.create({
       title: 'Data Structures',
