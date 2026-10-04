@@ -26,17 +26,16 @@ export async function submissionRoutes(
         success: false,
         error: {
           code: 'VALIDATION_ERROR',
-          message:
-            parsed.error.issues[0]?.message ?? 'Invalid request body',
+          message: parsed.error.issues[0]?.message ?? 'Invalid request body',
         },
       });
     }
 
     const submission = service.createSubmission(parsed.data);
 
-    return reply.status(201).send(
-      successResponse('Assignment submitted successfully', submission),
-    );
+    return reply
+      .status(201)
+      .send(successResponse('Assignment submitted successfully', submission));
   });
 
   app.get('/submissions/:id', async (request, reply) => {
@@ -55,7 +54,10 @@ export async function submissionRoutes(
     const submissions = service.getStudentSubmissions(studentId);
 
     return reply.send(
-      successResponse('Student submissions retrieved successfully', submissions),
+      successResponse(
+        'Student submissions retrieved successfully',
+        submissions,
+      ),
     );
   });
 
@@ -65,7 +67,10 @@ export async function submissionRoutes(
     const submissions = service.getAssignmentSubmissions(assignmentId);
 
     return reply.send(
-      successResponse('Assignment submissions retrieved successfully', submissions),
+      successResponse(
+        'Assignment submissions retrieved successfully',
+        submissions,
+      ),
     );
   });
 
@@ -79,8 +84,7 @@ export async function submissionRoutes(
         success: false,
         error: {
           code: 'VALIDATION_ERROR',
-          message:
-            parsed.error.issues[0]?.message ?? 'Invalid request body',
+          message: parsed.error.issues[0]?.message ?? 'Invalid request body',
         },
       });
     }
@@ -102,8 +106,7 @@ export async function submissionRoutes(
         success: false,
         error: {
           code: 'VALIDATION_ERROR',
-          message:
-            parsed.error.issues[0]?.message ?? 'Invalid request body',
+          message: parsed.error.issues[0]?.message ?? 'Invalid request body',
         },
       });
     }

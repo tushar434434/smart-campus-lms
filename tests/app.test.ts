@@ -1,16 +1,47 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
 import { buildApp } from '../src/app.js';
 import { AppError } from '../src/errors/app-error.js';
 
 describe('Smart Campus LMS API', () => {
   let app: ReturnType<typeof buildApp>;
 
+  let facultyToken: string;
+  let studentToken: string;
+  let adminToken: string;
+
+  beforeEach(async () => {
+    app = buildApp();
+
+    await app.ready();
+
+    facultyToken = app.jwt.sign({
+      sub: 'faculty-test-id',
+      role: 'faculty',
+    });
+
+    studentToken = app.jwt.sign({
+      sub: 'student-test-id',
+      role: 'student',
+    });
+
+    adminToken = app.jwt.sign({
+      sub: 'admin-test-id',
+      role: 'admin',
+    });
+  });
+
   afterEach(async () => {
     await app.close();
   });
-  it('should reject an invalid page number', async () => {
-    app = buildApp();
 
+  const authHeaders = (token: string) => ({
+    authorization: `Bearer ${token}`,
+  });
+
+  // Course listing validation
+
+  it('should reject an invalid page number', async () => {
     const response = await app.inject({
       method: 'GET',
       url: '/courses?page=0',
@@ -19,9 +50,8 @@ describe('Smart Campus LMS API', () => {
     expect(response.statusCode).toBe(400);
     expect(response.json().error.code).toBe('VALIDATION_ERROR');
   });
-  it('should reject a limit greater than 100', async () => {
-    app = buildApp();
 
+  it('should reject a limit greater than 100', async () => {
     const response = await app.inject({
       method: 'GET',
       url: '/courses?limit=101',
@@ -30,9 +60,8 @@ describe('Smart Campus LMS API', () => {
     expect(response.statusCode).toBe(400);
     expect(response.json().error.code).toBe('VALIDATION_ERROR');
   });
-  it('should reject invalid course credits filter', async () => {
-    app = buildApp();
 
+  it('should reject invalid course credits filter', async () => {
     const response = await app.inject({
       method: 'GET',
       url: '/courses?credits=10',
@@ -41,22 +70,11 @@ describe('Smart Campus LMS API', () => {
     expect(response.statusCode).toBe(400);
     expect(response.json().error.code).toBe('VALIDATION_ERROR');
   });
-  it('should return 404 when deleting a nonexistent course', async () => {
-    app = buildApp();
 
+  // Authentication and authorization
+
+  it('should reject course creation without a token', async () => {
     const response = await app.inject({
-      method: 'DELETE',
-      url: '/courses/nonexistent-id',
-    });
-
-    expect(response.statusCode).toBe(404);
-    expect(response.json().success).toBe(false);
-    expect(response.json().error.code).toBe('COURSE_NOT_FOUND');
-  });
-  it('should delete a course successfully', async () => {
-    app = buildApp();
-
-    const createResponse = await app.inject({
       method: 'POST',
       url: '/courses',
       payload: {
@@ -66,11 +84,58 @@ describe('Smart Campus LMS API', () => {
       },
     });
 
+    expect(response.statusCode).toBe(401);
+  });
+
+  it('should reject course creation by a student', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/courses',
+      headers: authHeaders(studentToken),
+      payload: {
+        title: 'Computer Networks',
+        code: 'CS307',
+        credits: 4,
+      },
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  // Course deletion
+
+  it('should return 404 when deleting a nonexistent course', async () => {
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/courses/nonexistent-id',
+      headers: authHeaders(adminToken),
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json().success).toBe(false);
+    expect(response.json().error.code).toBe('COURSE_NOT_FOUND');
+  });
+
+  it('should delete a course successfully', async () => {
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/courses',
+      headers: authHeaders(facultyToken),
+      payload: {
+        title: 'Computer Networks',
+        code: 'CS307',
+        credits: 4,
+      },
+    });
+
+    expect(createResponse.statusCode).toBe(201);
+
     const createdCourse = createResponse.json().data;
 
     const response = await app.inject({
       method: 'DELETE',
       url: `/courses/${createdCourse.id}`,
+      headers: authHeaders(adminToken),
     });
 
     expect(response.statusCode).toBe(200);
@@ -85,12 +150,14 @@ describe('Smart Campus LMS API', () => {
 
     expect(getResponse.statusCode).toBe(404);
   });
-  it('should reject invalid course update data', async () => {
-    app = buildApp();
 
+  // Course update
+
+  it('should reject invalid course update data', async () => {
     const createResponse = await app.inject({
       method: 'POST',
       url: '/courses',
+      headers: authHeaders(facultyToken),
       payload: {
         title: 'Operating Systems',
         code: 'CS306',
@@ -103,6 +170,7 @@ describe('Smart Campus LMS API', () => {
     const response = await app.inject({
       method: 'PATCH',
       url: `/courses/${createdCourse.id}`,
+      headers: authHeaders(facultyToken),
       payload: {
         credits: 10,
       },
@@ -111,12 +179,12 @@ describe('Smart Campus LMS API', () => {
     expect(response.statusCode).toBe(400);
     expect(response.json().error.code).toBe('VALIDATION_ERROR');
   });
-  it('should return 404 when updating a nonexistent course', async () => {
-    app = buildApp();
 
+  it('should return 404 when updating a nonexistent course', async () => {
     const response = await app.inject({
       method: 'PATCH',
       url: '/courses/nonexistent-id',
+      headers: authHeaders(facultyToken),
       payload: {
         credits: 5,
       },
@@ -125,24 +193,24 @@ describe('Smart Campus LMS API', () => {
     expect(response.statusCode).toBe(404);
     expect(response.json().error.code).toBe('COURSE_NOT_FOUND');
   });
-  it('should reject an empty course update', async () => {
-    app = buildApp();
 
+  it('should reject an empty course update', async () => {
     const response = await app.inject({
       method: 'PATCH',
       url: '/courses/some-course-id',
+      headers: authHeaders(facultyToken),
       payload: {},
     });
 
     expect(response.statusCode).toBe(400);
     expect(response.json().error.code).toBe('VALIDATION_ERROR');
   });
-  it('should update a course successfully', async () => {
-    app = buildApp();
 
+  it('should update a course successfully', async () => {
     const createResponse = await app.inject({
       method: 'POST',
       url: '/courses',
+      headers: authHeaders(facultyToken),
       payload: {
         title: 'Database Management Systems',
         code: 'CS305',
@@ -155,6 +223,7 @@ describe('Smart Campus LMS API', () => {
     const response = await app.inject({
       method: 'PATCH',
       url: `/courses/${createdCourse.id}`,
+      headers: authHeaders(facultyToken),
       payload: {
         credits: 5,
       },
@@ -165,12 +234,14 @@ describe('Smart Campus LMS API', () => {
     expect(response.json().data.credits).toBe(5);
     expect(response.json().data.title).toBe('Database Management Systems');
   });
-  it('should retrieve a course by ID', async () => {
-    app = buildApp();
 
+  // Course retrieval
+
+  it('should retrieve a course by ID', async () => {
     const createResponse = await app.inject({
       method: 'POST',
       url: '/courses',
+      headers: authHeaders(facultyToken),
       payload: {
         title: 'Database Management Systems',
         code: 'CS304',
@@ -190,12 +261,12 @@ describe('Smart Campus LMS API', () => {
     expect(response.json().data.id).toBe(createdCourse.id);
     expect(response.json().data.title).toBe('Database Management Systems');
   });
-  it('should create a course with an ID and timestamp', async () => {
-    app = buildApp();
 
+  it('should create a course with an ID and timestamp', async () => {
     const response = await app.inject({
       method: 'POST',
       url: '/courses',
+      headers: authHeaders(facultyToken),
       payload: {
         title: 'Operating Systems',
         code: 'CS302',
@@ -214,11 +285,10 @@ describe('Smart Campus LMS API', () => {
   });
 
   it('should retrieve courses', async () => {
-    app = buildApp();
-
     await app.inject({
       method: 'POST',
       url: '/courses',
+      headers: authHeaders(facultyToken),
       payload: {
         title: 'Database Management Systems',
         code: 'CS303',
@@ -257,9 +327,9 @@ describe('Smart Campus LMS API', () => {
     });
   });
 
-  it('should return healthy status', async () => {
-    app = buildApp();
+  // Health check
 
+  it('should return healthy status', async () => {
     const response = await app.inject({
       method: 'GET',
       url: '/health',
@@ -277,14 +347,18 @@ describe('Smart Campus LMS API', () => {
     });
   });
 
-  it('should handle application errors', async () => {
-    app = buildApp();
+  // Error handling
 
-    app.get('/test-error', async () => {
+  it('should handle application errors', async () => {
+    const testApp = buildApp();
+
+    testApp.get('/test-error', async () => {
       throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
     });
 
-    const response = await app.inject({
+    await testApp.ready();
+
+    const response = await testApp.inject({
       method: 'GET',
       url: '/test-error',
     });
@@ -298,16 +372,20 @@ describe('Smart Campus LMS API', () => {
         message: 'Course not found',
       },
     });
+
+    await testApp.close();
   });
 
   it('should handle unexpected errors', async () => {
-    app = buildApp();
+    const testApp = buildApp();
 
-    app.get('/test-server-error', async () => {
+    testApp.get('/test-server-error', async () => {
       throw new Error('Database connection failed');
     });
 
-    const response = await app.inject({
+    await testApp.ready();
+
+    const response = await testApp.inject({
       method: 'GET',
       url: '/test-server-error',
     });
@@ -321,14 +399,17 @@ describe('Smart Campus LMS API', () => {
         message: 'An unexpected error occurred',
       },
     });
+
+    await testApp.close();
   });
 
-  it('should create a course with valid data', async () => {
-    app = buildApp();
+  // Course creation validation
 
+  it('should create a course with valid data', async () => {
     const response = await app.inject({
       method: 'POST',
       url: '/courses',
+      headers: authHeaders(facultyToken),
       payload: {
         title: 'Data Structures',
         code: 'CS301',
@@ -350,11 +431,10 @@ describe('Smart Campus LMS API', () => {
   });
 
   it('should reject invalid course data', async () => {
-    app = buildApp();
-
     const response = await app.inject({
       method: 'POST',
       url: '/courses',
+      headers: authHeaders(facultyToken),
       payload: {
         title: 'DS',
         code: 'cs301',

@@ -21,23 +21,13 @@ export function createSubmissionService(
       const student = studentRepository.findById(input.studentId);
 
       if (!student) {
-        throw new AppError(
-          'Student not found',
-          404,
-          'STUDENT_NOT_FOUND',
-        );
+        throw new AppError('Student not found', 404, 'STUDENT_NOT_FOUND');
       }
 
-      const assignment = assignmentRepository.findById(
-        input.assignmentId,
-      );
+      const assignment = assignmentRepository.findById(input.assignmentId);
 
       if (!assignment) {
-        throw new AppError(
-          'Assignment not found',
-          404,
-          'ASSIGNMENT_NOT_FOUND',
-        );
+        throw new AppError('Assignment not found', 404, 'ASSIGNMENT_NOT_FOUND');
       }
 
       const existing = repository.findByStudentAndAssignment(
@@ -60,11 +50,7 @@ export function createSubmissionService(
       const submission = repository.findById(id);
 
       if (!submission) {
-        throw new AppError(
-          'Submission not found',
-          404,
-          'SUBMISSION_NOT_FOUND',
-        );
+        throw new AppError('Submission not found', 404, 'SUBMISSION_NOT_FOUND');
       }
 
       return submission;
@@ -74,11 +60,7 @@ export function createSubmissionService(
       const student = studentRepository.findById(studentId);
 
       if (!student) {
-        throw new AppError(
-          'Student not found',
-          404,
-          'STUDENT_NOT_FOUND',
-        );
+        throw new AppError('Student not found', 404, 'STUDENT_NOT_FOUND');
       }
 
       return repository.findByStudentId(studentId);
@@ -88,60 +70,33 @@ export function createSubmissionService(
       const assignment = assignmentRepository.findById(assignmentId);
 
       if (!assignment) {
-        throw new AppError(
-          'Assignment not found',
-          404,
-          'ASSIGNMENT_NOT_FOUND',
-        );
+        throw new AppError('Assignment not found', 404, 'ASSIGNMENT_NOT_FOUND');
       }
 
       return repository.findByAssignmentId(assignmentId);
     },
 
-    updateSubmission(
-      id: string,
-      input: UpdateSubmissionInput,
-    ) {
-      const submission = repository.updateContent(
-        id,
-        input.content,
-      );
+    updateSubmission(id: string, input: UpdateSubmissionInput) {
+      const submission = repository.updateContent(id, input.content);
 
       if (!submission) {
-        throw new AppError(
-          'Submission not found',
-          404,
-          'SUBMISSION_NOT_FOUND',
-        );
+        throw new AppError('Submission not found', 404, 'SUBMISSION_NOT_FOUND');
       }
 
       return submission;
     },
 
-    gradeSubmission(
-      id: string,
-      input: GradeSubmissionInput,
-    ) {
+    gradeSubmission(id: string, input: GradeSubmissionInput) {
       const submission = repository.findById(id);
 
       if (!submission) {
-        throw new AppError(
-          'Submission not found',
-          404,
-          'SUBMISSION_NOT_FOUND',
-        );
+        throw new AppError('Submission not found', 404, 'SUBMISSION_NOT_FOUND');
       }
 
-      const assignment = assignmentRepository.findById(
-        submission.assignmentId,
-      );
+      const assignment = assignmentRepository.findById(submission.assignmentId);
 
       if (!assignment) {
-        throw new AppError(
-          'Assignment not found',
-          404,
-          'ASSIGNMENT_NOT_FOUND',
-        );
+        throw new AppError('Assignment not found', 404, 'ASSIGNMENT_NOT_FOUND');
       }
 
       if (input.marks > assignment.maxMarks) {
@@ -152,11 +107,7 @@ export function createSubmissionService(
         );
       }
 
-      return repository.grade(
-        id,
-        input.marks,
-        input.feedback,
-      );
+      return repository.grade(id, input.marks, input.feedback);
     },
   };
 }

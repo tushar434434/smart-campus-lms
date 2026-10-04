@@ -17,13 +17,16 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@fastify/jwt": "^10.2.2",
     "@types/node": "^26.6.3",
+    "bcrypt": "^6.0.0",
     "fastify": "^5.12.5",
     "tsx": "^4.23.15",
     "zod": "^4.6.5"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/bcrypt": "^6.0.0",
     "eslint": "^10.11.0",
     "globals": "^17.13.0",
     "prettier": "^3.9.9",

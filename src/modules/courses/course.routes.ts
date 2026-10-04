@@ -3,6 +3,9 @@ import type { FastifyInstance } from 'fastify';
 import { AppError } from '../../errors/app-error.js';
 import { successResponse } from '../../utils/response.js';
 
+import { authenticate } from '../../middleware/authenticate.js';
+import { authorize } from '../../middleware/authorize.js';
+
 import {
   createCourseSchema,
   updateCourseSchema,
@@ -19,26 +22,34 @@ export async function courseRoutes(
   app: FastifyInstance,
   { service }: CourseRoutesOptions,
 ) {
-  app.post('/courses', async (request, reply) => {
-    const result = createCourseSchema.safeParse(request.body);
+  // Create course: Faculty and Admin only
+  app.post(
+    '/courses',
+    {
+      preHandler: [authenticate, authorize('faculty', 'admin')],
+    },
+    async (request, reply) => {
+      const result = createCourseSchema.safeParse(request.body);
 
-    if (!result.success) {
-      throw new AppError(
-        result.error.issues
-          .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
-          .join(', '),
-        400,
-        'VALIDATION_ERROR',
-      );
-    }
+      if (!result.success) {
+        throw new AppError(
+          result.error.issues
+            .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+            .join(', '),
+          400,
+          'VALIDATION_ERROR',
+        );
+      }
 
-    const course = service.createCourse(result.data);
+      const course = service.createCourse(result.data);
 
-    return reply
-      .status(201)
-      .send(successResponse('Course created successfully', course));
-  });
+      return reply
+        .status(201)
+        .send(successResponse('Course created successfully', course));
+    },
+  );
 
+  // List courses: Public for now
   app.get('/courses', async (request) => {
     const result = listCoursesSchema.safeParse(request.query);
 
@@ -57,33 +68,48 @@ export async function courseRoutes(
     return successResponse('Courses retrieved successfully', courses);
   });
 
+  // Get course by ID: Public for now
   app.get<{ Params: { id: string } }>('/courses/:id', async (request) => {
     const course = service.getCourseById(request.params.id);
 
     return successResponse('Course retrieved successfully', course);
   });
 
-  app.patch<{ Params: { id: string } }>('/courses/:id', async (request) => {
-    const result = updateCourseSchema.safeParse(request.body);
+  // Update course: Faculty and Admin only
+  app.patch<{ Params: { id: string } }>(
+    '/courses/:id',
+    {
+      preHandler: [authenticate, authorize('faculty', 'admin')],
+    },
+    async (request) => {
+      const result = updateCourseSchema.safeParse(request.body);
 
-    if (!result.success) {
-      throw new AppError(
-        result.error.issues.map((issue) => issue.message).join(', '),
-        400,
-        'VALIDATION_ERROR',
-      );
-    }
+      if (!result.success) {
+        throw new AppError(
+          result.error.issues.map((issue) => issue.message).join(', '),
+          400,
+          'VALIDATION_ERROR',
+        );
+      }
 
-    const course = service.updateCourse(request.params.id, result.data);
+      const course = service.updateCourse(request.params.id, result.data);
 
-    return successResponse('Course updated successfully', course);
-  });
+      return successResponse('Course updated successfully', course);
+    },
+  );
 
-  app.delete<{ Params: { id: string } }>('/courses/:id', async (request) => {
-    service.deleteCourse(request.params.id);
+  // Delete course: Admin only
+  app.delete<{ Params: { id: string } }>(
+    '/courses/:id',
+    {
+      preHandler: [authenticate, authorize('admin')],
+    },
+    async (request) => {
+      service.deleteCourse(request.params.id);
 
-    return successResponse('Course deleted successfully', {
-      id: request.params.id,
-    });
-  });
+      return successResponse('Course deleted successfully', {
+        id: request.params.id,
+      });
+    },
+  );
 }

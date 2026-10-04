@@ -5,16 +5,11 @@ import type {
   SubmissionRepository,
 } from './submission.repository.interface.js';
 
-export class InMemorySubmissionRepository
-  implements SubmissionRepository
-{
+export class InMemorySubmissionRepository implements SubmissionRepository {
   private submissions: Submission[] = [];
 
   create(
-    input: Pick<
-      Submission,
-      'studentId' | 'assignmentId' | 'content'
-    >,
+    input: Pick<Submission, 'studentId' | 'assignmentId' | 'content'>,
   ): Submission {
     const now = new Date().toISOString();
 
@@ -32,9 +27,7 @@ export class InMemorySubmissionRepository
   }
 
   findById(id: string): Submission | undefined {
-    return this.submissions.find(
-      (submission) => submission.id === id,
-    );
+    return this.submissions.find((submission) => submission.id === id);
   }
 
   findByStudentId(studentId: string): Submission[] {
@@ -60,10 +53,7 @@ export class InMemorySubmissionRepository
     );
   }
 
-  updateContent(
-    id: string,
-    content: string,
-  ): Submission | undefined {
+  updateContent(id: string, content: string): Submission | undefined {
     const submission = this.findById(id);
 
     if (!submission) {
@@ -80,11 +70,7 @@ export class InMemorySubmissionRepository
     return submission;
   }
 
-  grade(
-    id: string,
-    marks: number,
-    feedback?: string,
-  ): Submission | undefined {
+  grade(id: string, marks: number, feedback?: string): Submission | undefined {
     const submission = this.findById(id);
 
     if (!submission) {

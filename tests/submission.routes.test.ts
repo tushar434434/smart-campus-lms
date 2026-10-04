@@ -9,8 +9,16 @@ describe('Submission Routes', () => {
   let studentId: string;
   let courseId: string;
   let assignmentId: string;
+  let facultyToken: string;
 
   beforeEach(async () => {
+    await app.ready();
+
+    facultyToken = app.jwt.sign({
+      sub: 'faculty-test-id',
+      role: 'faculty',
+    });
+
     const studentResponse = await app.inject({
       method: 'POST',
       url: '/students',
@@ -28,6 +36,9 @@ describe('Submission Routes', () => {
     const courseResponse = await app.inject({
       method: 'POST',
       url: '/courses',
+      headers: {
+        authorization: `Bearer ${facultyToken}`,
+      },
       payload: {
         title: 'Data Structures',
         code: `CS${Math.floor(1000 + Math.random() * 9000)}`,
@@ -40,6 +51,9 @@ describe('Submission Routes', () => {
     const assignmentResponse = await app.inject({
       method: 'POST',
       url: '/assignments',
+      headers: {
+        authorization: `Bearer ${facultyToken}`,
+      },
       payload: {
         courseId,
         title: 'Array Assignment',
@@ -162,9 +176,7 @@ describe('Submission Routes', () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json().data.content).toBe(
-      'My updated assignment solution',
-    );
+    expect(response.json().data.content).toBe('My updated assignment solution');
   });
 
   it('should grade a submission', async () => {

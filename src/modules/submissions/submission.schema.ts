@@ -28,14 +28,8 @@ export const gradeSubmissionSchema = z.object({
     .optional(),
 });
 
-export type CreateSubmissionInput = z.infer<
-  typeof createSubmissionSchema
->;
+export type CreateSubmissionInput = z.infer<typeof createSubmissionSchema>;
 
-export type UpdateSubmissionInput = z.infer<
-  typeof updateSubmissionSchema
->;
+export type UpdateSubmissionInput = z.infer<typeof updateSubmissionSchema>;
 
-export type GradeSubmissionInput = z.infer<
-  typeof gradeSubmissionSchema
->;
+export type GradeSubmissionInput = z.infer<typeof gradeSubmissionSchema>;

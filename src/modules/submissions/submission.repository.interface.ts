@@ -28,14 +28,7 @@ export interface SubmissionRepository {
     assignmentId: string,
   ): Submission | undefined;
 
-  updateContent(
-    id: string,
-    content: string,
-  ): Submission | undefined;
+  updateContent(id: string, content: string): Submission | undefined;
 
-  grade(
-    id: string,
-    marks: number,
-    feedback?: string,
-  ): Submission | undefined;
+  grade(id: string, marks: number, feedback?: string): Submission | undefined;
 }

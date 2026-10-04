@@ -6,9 +6,16 @@ describe('Enrollment API', () => {
   let app: ReturnType<typeof buildApp>;
   let studentId: string;
   let courseId: string;
+  let facultyToken: string;
 
   beforeEach(async () => {
     app = buildApp();
+    await app.ready();
+
+    facultyToken = app.jwt.sign({
+      sub: 'faculty-test-id',
+      role: 'faculty',
+    });
 
     const studentResponse = await app.inject({
       method: 'POST',
@@ -27,6 +34,9 @@ describe('Enrollment API', () => {
     const courseResponse = await app.inject({
       method: 'POST',
       url: '/courses',
+      headers: {
+        authorization: `Bearer ${facultyToken}`,
+      },
       payload: {
         title: 'Operating Systems',
         code: 'CS301',
