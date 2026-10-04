@@ -6,16 +6,19 @@ import { courseRoutes } from './modules/courses/course.routes.js';
 import { studentRoutes } from './modules/students/student.routes.js';
 import { enrollmentRoutes } from './modules/enrollments/enrollment.routes.js';
 import { assignmentRoutes } from './modules/assignments/assignment.routes.js';
+import { submissionRoutes } from './modules/submissions/submission.routes.js';
 
 import { InMemoryCourseRepository } from './modules/courses/course.repository.js';
 import { InMemoryStudentRepository } from './modules/students/student.repository.js';
 import { InMemoryEnrollmentRepository } from './modules/enrollments/enrollment.repository.js';
 import { InMemoryAssignmentRepository } from './modules/assignments/assignment.repository.js';
+import { InMemorySubmissionRepository } from './modules/submissions/submission.repository.js';
 
 import { createCourseService } from './modules/courses/course.service.js';
 import { createStudentService } from './modules/students/student.service.js';
 import { createEnrollmentService } from './modules/enrollments/enrollment.service.js';
 import { createAssignmentService } from './modules/assignments/assignment.service.js';
+import { createSubmissionService } from './modules/submissions/submission.service.js';
 
 export function buildApp() {
   const app = Fastify({
@@ -29,6 +32,7 @@ export function buildApp() {
   const studentRepository = new InMemoryStudentRepository();
   const enrollmentRepository = new InMemoryEnrollmentRepository();
   const assignmentRepository = new InMemoryAssignmentRepository();
+  const submissionRepository = new InMemorySubmissionRepository();
 
   // Services
   const courseService = createCourseService(courseRepository);
@@ -44,6 +48,12 @@ export function buildApp() {
   const assignmentService = createAssignmentService(
     assignmentRepository,
     courseRepository,
+  );
+
+  const submissionService = createSubmissionService(
+    submissionRepository,
+    studentRepository,
+    assignmentRepository,
   );
 
   // Health check
@@ -73,6 +83,10 @@ export function buildApp() {
 
   app.register(assignmentRoutes, {
     service: assignmentService,
+  });
+
+  app.register(submissionRoutes, {
+    service: submissionService,
   });
 
   return app;
