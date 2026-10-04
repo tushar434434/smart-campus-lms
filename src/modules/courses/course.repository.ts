@@ -1,52 +1,56 @@
-import type { CreateCourseInput } from './course.schema.js';
-import type { UpdateCourseInput } from './course.schema.js';
+import type { CreateCourseInput, UpdateCourseInput } from './course.schema.js';
+
+import type { CourseRepository } from './course.repository.interface.js';
 
 export interface Course extends CreateCourseInput {
   id: string;
   createdAt: string;
 }
 
-const courses: Course[] = [];
-export function createCourse(input: CreateCourseInput): Course {
-  const course: Course = {
-    id: crypto.randomUUID(),
-    ...input,
-    createdAt: new Date().toISOString(),
-  };
+export class InMemoryCourseRepository implements CourseRepository {
+  private courses: Course[] = [];
 
-  courses.push(course);
+  create(input: CreateCourseInput): Course {
+    const course: Course = {
+      id: crypto.randomUUID(),
+      ...input,
+      createdAt: new Date().toISOString(),
+    };
 
-  return course;
-}
-export function getCourses(): Course[] {
-  return courses;
-}
+    this.courses.push(course);
 
-export function getCourseById(id: string): Course | undefined {
-  return courses.find((course) => course.id === id);
-}
-export function updateCourse(
-  id: string,
-  input: UpdateCourseInput,
-): Course | undefined {
-  const course = courses.find((course) => course.id === id);
-
-  if (!course) {
-    return undefined;
+    return course;
   }
 
-  Object.assign(course, input);
-
-  return course;
-}
-export function deleteCourse(id: string): boolean {
-  const courseIndex = courses.findIndex((course) => course.id === id);
-
-  if (courseIndex === -1) {
-    return false;
+  findAll(): Course[] {
+    return this.courses;
   }
 
-  courses.splice(courseIndex, 1);
+  findById(id: string): Course | undefined {
+    return this.courses.find((course) => course.id === id);
+  }
 
-  return true;
+  update(id: string, input: UpdateCourseInput): Course | undefined {
+    const course = this.courses.find((course) => course.id === id);
+
+    if (!course) {
+      return undefined;
+    }
+
+    Object.assign(course, input);
+
+    return course;
+  }
+
+  delete(id: string): boolean {
+    const courseIndex = this.courses.findIndex((course) => course.id === id);
+
+    if (courseIndex === -1) {
+      return false;
+    }
+
+    this.courses.splice(courseIndex, 1);
+
+    return true;
+  }
 }

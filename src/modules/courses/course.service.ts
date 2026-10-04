@@ -1,19 +1,21 @@
 import { AppError } from '../../errors/app-error.js';
-import type { UpdateCourseInput } from './course.schema.js';
-import {
-  createCourse as createCourseInRepository,
-  deleteCourse as deleteCourseInRepository,
-  getCourseById as getCourseByIdFromRepository,
-  getCourses as getCoursesFromRepository,
-  updateCourse as updateCourseInRepository,
-} from './course.repository.js';
 
-export {
-  createCourseInRepository as createCourse,
-  getCoursesFromRepository as getCourses,
-};
+import type { CreateCourseInput, UpdateCourseInput } from './course.schema.js';
+
+import { InMemoryCourseRepository } from './course.repository.js';
+
+const courseRepository = new InMemoryCourseRepository();
+
+export function createCourse(input: CreateCourseInput) {
+  return courseRepository.create(input);
+}
+
+export function getCourses() {
+  return courseRepository.findAll();
+}
+
 export function getCourseById(id: string) {
-  const course = getCourseByIdFromRepository(id);
+  const course = courseRepository.findById(id);
 
   if (!course) {
     throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
@@ -21,8 +23,9 @@ export function getCourseById(id: string) {
 
   return course;
 }
+
 export function updateCourse(id: string, input: UpdateCourseInput) {
-  const course = updateCourseInRepository(id, input);
+  const course = courseRepository.update(id, input);
 
   if (!course) {
     throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
@@ -30,8 +33,9 @@ export function updateCourse(id: string, input: UpdateCourseInput) {
 
   return course;
 }
+
 export function deleteCourse(id: string) {
-  const deleted = deleteCourseInRepository(id);
+  const deleted = courseRepository.delete(id);
 
   if (!deleted) {
     throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
