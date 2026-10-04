@@ -41,11 +41,6 @@ export async function courseRoutes(app: FastifyInstance) {
   // Retrieve a course by ID
   app.get<{ Params: { id: string } }>('/courses/:id', async (request) => {
     const course = getCourseById(request.params.id);
-
-    if (!course) {
-      throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
-    }
-
     return successResponse('Course retrieved successfully', course);
   });
 
@@ -65,26 +60,15 @@ export async function courseRoutes(app: FastifyInstance) {
 
     const course = updateCourse(request.params.id, result.data);
 
-    if (!course) {
-      throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
-    }
-
     return successResponse('Course updated successfully', course);
   });
 
   // Delete a course
-  app.delete<{ Params: { id: string } }>(
-    '/courses/:id',
-    async (request) => {
-      const deleted = deleteCourse(request.params.id);
+  app.delete<{ Params: { id: string } }>('/courses/:id', async (request) => {
+    const deleted = deleteCourse(request.params.id);
 
-      if (!deleted) {
-        throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
-      }
-
-      return successResponse('Course deleted successfully', {
-        id: request.params.id,
-      });
-    },
-  );
+    return successResponse('Course deleted successfully', {
+      id: request.params.id,
+    });
+  });
 }
