@@ -7,6 +7,34 @@ export interface Student extends CreateStudentInput {
 }
 
 export class InMemoryStudentRepository implements StudentRepository {
+  findAll(input: { page: number; limit: number; search?: string }): {
+    students: Student[];
+    total: number;
+  } {
+    let filteredStudents = [...this.students];
+
+    if (input.search) {
+      const searchTerm = input.search.toLowerCase();
+
+      filteredStudents = filteredStudents.filter(
+        (student) =>
+          student.name.toLowerCase().includes(searchTerm) ||
+          student.email.toLowerCase().includes(searchTerm) ||
+          student.enrollmentNumber.toLowerCase().includes(searchTerm),
+      );
+    }
+
+    const total = filteredStudents.length;
+
+    const startIndex = (input.page - 1) * input.limit;
+
+    const students = filteredStudents.slice(
+      startIndex,
+      startIndex + input.limit,
+    );
+
+    return { students, total };
+  }
   private students: Student[] = [];
 
   create(input: CreateStudentInput): Student {

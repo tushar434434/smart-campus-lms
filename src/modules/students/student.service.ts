@@ -1,6 +1,9 @@
 import { AppError } from '../../errors/app-error.js';
 
-import type { CreateStudentInput } from './student.schema.js';
+import type {
+  CreateStudentInput,
+  ListStudentsInput,
+} from './student.schema.js';
 
 import { InMemoryStudentRepository } from './student.repository.js';
 
@@ -43,6 +46,20 @@ export function createStudentService(repository: StudentRepository) {
 
       return student;
     },
+
+    listStudents(input: ListStudentsInput) {
+      const { students, total } = repository.findAll(input);
+
+      return {
+        students,
+        pagination: {
+          page: input.page,
+          limit: input.limit,
+          total,
+          totalPages: Math.ceil(total / input.limit),
+        },
+      };
+    },
   };
 }
 
@@ -50,4 +67,5 @@ const defaultStudentService = createStudentService(
   new InMemoryStudentRepository(),
 );
 
-export const { createStudent, getStudentById } = defaultStudentService;
+export const { createStudent, getStudentById, listStudents } =
+  defaultStudentService;

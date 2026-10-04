@@ -12,6 +12,68 @@ describe('Student API', () => {
   afterEach(async () => {
     await app.close();
   });
+  it('should list students with pagination metadata', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/students?page=1&limit=5',
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    const body = response.json();
+
+    expect(body.success).toBe(true);
+    expect(body.data).toHaveProperty('students');
+    expect(body.data.pagination).toEqual({
+      page: 1,
+      limit: 5,
+      total: body.data.pagination.total,
+      totalPages: body.data.pagination.totalPages,
+    });
+  });
+  it('should search students by name', async () => {
+    await app.inject({
+      method: 'POST',
+      url: '/students',
+      payload: {
+        name: 'Aman Kumar',
+        email: 'aman.search@example.com',
+        enrollmentNumber: 'AI2026010',
+        department: 'AI-ML',
+        semester: 5,
+      },
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/students?search=Aman',
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    const body = response.json();
+
+    expect(body.data.students.length).toBe(1);
+    expect(body.data.students[0].name).toBe('Aman Kumar');
+  });
+  it('should reject an invalid page number', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/students?page=0',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
+  });
+  it('should reject a limit greater than 100', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/students?limit=101',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
+  });
   it('should return 404 when student does not exist', async () => {
     const response = await app.inject({
       method: 'GET',

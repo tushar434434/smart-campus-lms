@@ -9,4 +9,13 @@ export interface StudentRepository {
   findByEmail(email: string): Student | undefined;
 
   findByEnrollmentNumber(enrollmentNumber: string): Student | undefined;
+
+  findAll(input: {
+    page: number;
+    limit: number;
+    search?: string | undefined;
+  }): {
+    students: Student[];
+    total: number;
+  };
 }
