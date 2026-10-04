@@ -9,24 +9,16 @@ import {
   updateStudentSchema,
 } from './student.schema.js';
 
-import {
-  createStudent,
-  getStudentById,
-  listStudents,
-  updateStudent,
-  deleteStudent,
-} from './student.service.js';
+import type { createStudentService } from './student.service.js';
 
-export async function studentRoutes(app: FastifyInstance) {
-  app.delete<{ Params: { id: string } }>(
-    '/students/:id',
-    async (request, reply) => {
-      deleteStudent(request.params.id);
+type StudentRoutesOptions = {
+  service: ReturnType<typeof createStudentService>;
+};
 
-      return reply.status(204).send();
-    },
-  );
-  // Register a student
+export async function studentRoutes(
+  app: FastifyInstance,
+  { service }: StudentRoutesOptions,
+) {
   app.post('/students', async (request, reply) => {
     const result = createStudentSchema.safeParse(request.body);
 
@@ -40,14 +32,13 @@ export async function studentRoutes(app: FastifyInstance) {
       );
     }
 
-    const student = createStudent(result.data);
+    const student = service.createStudent(result.data);
 
     return reply
       .status(201)
       .send(successResponse('Student created successfully', student));
   });
 
-  // List students with pagination and search
   app.get('/students', async (request) => {
     const result = listStudentsSchema.safeParse(request.query);
 
@@ -61,17 +52,17 @@ export async function studentRoutes(app: FastifyInstance) {
       );
     }
 
-    const data = listStudents(result.data);
+    const data = service.listStudents(result.data);
 
     return successResponse('Students retrieved successfully', data);
   });
 
-  // Retrieve a student by ID
   app.get<{ Params: { id: string } }>('/students/:id', async (request) => {
-    const student = getStudentById(request.params.id);
+    const student = service.getStudentById(request.params.id);
 
     return successResponse('Student retrieved successfully', student);
   });
+
   app.patch<{ Params: { id: string } }>(
     '/students/:id',
     async (request, reply) => {
@@ -85,11 +76,20 @@ export async function studentRoutes(app: FastifyInstance) {
         );
       }
 
-      const student = updateStudent(request.params.id, result.data);
+      const student = service.updateStudent(request.params.id, result.data);
 
       return reply.send(
         successResponse('Student updated successfully', student),
       );
+    },
+  );
+
+  app.delete<{ Params: { id: string } }>(
+    '/students/:id',
+    async (request, reply) => {
+      service.deleteStudent(request.params.id);
+
+      return reply.status(204).send();
     },
   );
 }

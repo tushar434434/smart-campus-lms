@@ -1,22 +1,24 @@
 import type { FastifyInstance } from 'fastify';
+
 import { AppError } from '../../errors/app-error.js';
 import { successResponse } from '../../utils/response.js';
+
 import {
   createCourseSchema,
   updateCourseSchema,
   listCoursesSchema,
 } from './course.schema.js';
 
-import {
-  createCourse,
-  deleteCourse,
-  getCourseById,
-  getCourses,
-  updateCourse,
-} from './course.service.js';
+import type { createCourseService } from './course.service.js';
 
-export async function courseRoutes(app: FastifyInstance) {
-  // Create a new course
+type CourseRoutesOptions = {
+  service: ReturnType<typeof createCourseService>;
+};
+
+export async function courseRoutes(
+  app: FastifyInstance,
+  { service }: CourseRoutesOptions,
+) {
   app.post('/courses', async (request, reply) => {
     const result = createCourseSchema.safeParse(request.body);
 
@@ -30,15 +32,13 @@ export async function courseRoutes(app: FastifyInstance) {
       );
     }
 
-    const course = createCourse(result.data);
+    const course = service.createCourse(result.data);
 
     return reply
       .status(201)
       .send(successResponse('Course created successfully', course));
   });
 
-  // Retrieve all courses
-  // Retrieve courses with pagination and filtering
   app.get('/courses', async (request) => {
     const result = listCoursesSchema.safeParse(request.query);
 
@@ -52,39 +52,35 @@ export async function courseRoutes(app: FastifyInstance) {
       );
     }
 
-    const courses = getCourses(result.data);
+    const courses = service.getCourses(result.data);
 
     return successResponse('Courses retrieved successfully', courses);
   });
 
-  // Retrieve a course by ID
   app.get<{ Params: { id: string } }>('/courses/:id', async (request) => {
-    const course = getCourseById(request.params.id);
+    const course = service.getCourseById(request.params.id);
+
     return successResponse('Course retrieved successfully', course);
   });
 
-  // Update a course
   app.patch<{ Params: { id: string } }>('/courses/:id', async (request) => {
     const result = updateCourseSchema.safeParse(request.body);
 
     if (!result.success) {
       throw new AppError(
-        result.error.issues
-          .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
-          .join(', '),
+        result.error.issues.map((issue) => issue.message).join(', '),
         400,
         'VALIDATION_ERROR',
       );
     }
 
-    const course = updateCourse(request.params.id, result.data);
+    const course = service.updateCourse(request.params.id, result.data);
 
     return successResponse('Course updated successfully', course);
   });
 
-  // Delete a course
   app.delete<{ Params: { id: string } }>('/courses/:id', async (request) => {
-    const deleted = deleteCourse(request.params.id);
+    service.deleteCourse(request.params.id);
 
     return successResponse('Course deleted successfully', {
       id: request.params.id,
