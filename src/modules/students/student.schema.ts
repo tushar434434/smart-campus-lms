@@ -26,5 +26,12 @@ export const listStudentsSchema = z.object({
 
   search: z.string().trim().optional(),
 });
+export const updateStudentSchema = createStudentSchema
+  .partial()
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one field must be provided',
+  });
+
+export type UpdateStudentInput = z.infer<typeof updateStudentSchema>;
 
 export type ListStudentsInput = z.infer<typeof listStudentsSchema>;

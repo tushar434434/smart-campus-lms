@@ -12,6 +12,136 @@ describe('Student API', () => {
   afterEach(async () => {
     await app.close();
   });
+  it('should update a student successfully', async () => {
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/students',
+      payload: {
+        name: 'Rahul Sharma',
+        email: 'rahul.update@example.com',
+        enrollmentNumber: 'ENR2026101',
+        department: 'CSE',
+        semester: 5,
+      },
+    });
+
+    const created = createResponse.json().data;
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: `/students/${created.id}`,
+      payload: {
+        semester: 6,
+        department: 'AI & ML',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data.semester).toBe(6);
+    expect(response.json().data.department).toBe('AI & ML');
+    expect(response.json().data.name).toBe('Rahul Sharma');
+  });
+
+  it('should return 404 when updating a non-existent student', async () => {
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/students/non-existent-id',
+      payload: {
+        semester: 6,
+      },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error.code).toBe('STUDENT_NOT_FOUND');
+  });
+
+  it('should reject an empty update payload', async () => {
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/students/any-id',
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
+  });
+  it('should reject updating to an existing email', async () => {
+    const first = await app.inject({
+      method: 'POST',
+      url: '/students',
+      payload: {
+        name: 'Rahul Sharma',
+        email: 'rahul.one@example.com',
+        enrollmentNumber: 'ENR2026201',
+        department: 'CSE',
+        semester: 5,
+      },
+    });
+
+    const second = await app.inject({
+      method: 'POST',
+      url: '/students',
+      payload: {
+        name: 'Aman Verma',
+        email: 'aman.two@example.com',
+        enrollmentNumber: 'ENR2026202',
+        department: 'IT',
+        semester: 4,
+      },
+    });
+
+    const studentId = second.json().data.id;
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: `/students/${studentId}`,
+      payload: {
+        email: 'rahul.one@example.com',
+      },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json().error.code).toBe('STUDENT_EMAIL_EXISTS');
+  });
+
+  it('should reject updating to an existing enrollment number', async () => {
+    const first = await app.inject({
+      method: 'POST',
+      url: '/students',
+      payload: {
+        name: 'Neha Sharma',
+        email: 'neha.one@example.com',
+        enrollmentNumber: 'ENR2026301',
+        department: 'CSE',
+        semester: 5,
+      },
+    });
+
+    const second = await app.inject({
+      method: 'POST',
+      url: '/students',
+      payload: {
+        name: 'Karan Verma',
+        email: 'karan.two@example.com',
+        enrollmentNumber: 'ENR2026302',
+        department: 'IT',
+        semester: 4,
+      },
+    });
+
+    const studentId = second.json().data.id;
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: `/students/${studentId}`,
+      payload: {
+        enrollmentNumber: 'ENR2026301',
+      },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json().error.code).toBe('STUDENT_ENROLLMENT_EXISTS');
+  });
   it('should list students with pagination metadata', async () => {
     const response = await app.inject({
       method: 'GET',
@@ -36,8 +166,8 @@ describe('Student API', () => {
       method: 'POST',
       url: '/students',
       payload: {
-        name: 'Aman Kumar',
-        email: 'aman.search@example.com',
+        name: 'UniqueSearchStudent',
+        email: 'unique.search@example.com',
         enrollmentNumber: 'AI2026010',
         department: 'AI-ML',
         semester: 5,
@@ -46,15 +176,14 @@ describe('Student API', () => {
 
     const response = await app.inject({
       method: 'GET',
-      url: '/students?search=Aman',
+      url: '/students?search=UniqueSearchStudent',
     });
-
-    expect(response.statusCode).toBe(200);
 
     const body = response.json();
 
+    expect(response.statusCode).toBe(200);
     expect(body.data.students.length).toBe(1);
-    expect(body.data.students[0].name).toBe('Aman Kumar');
+    expect(body.data.students[0].name).toBe('UniqueSearchStudent');
   });
   it('should reject an invalid page number', async () => {
     const response = await app.inject({

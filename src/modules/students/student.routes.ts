@@ -3,12 +3,17 @@ import type { FastifyInstance } from 'fastify';
 import { AppError } from '../../errors/app-error.js';
 import { successResponse } from '../../utils/response.js';
 
-import { createStudentSchema, listStudentsSchema } from './student.schema.js';
+import {
+  createStudentSchema,
+  listStudentsSchema,
+  updateStudentSchema,
+} from './student.schema.js';
 
 import {
   createStudent,
   getStudentById,
   listStudents,
+  updateStudent,
 } from './student.service.js';
 
 export async function studentRoutes(app: FastifyInstance) {
@@ -58,4 +63,24 @@ export async function studentRoutes(app: FastifyInstance) {
 
     return successResponse('Student retrieved successfully', student);
   });
+  app.patch<{ Params: { id: string } }>(
+    '/students/:id',
+    async (request, reply) => {
+      const result = updateStudentSchema.safeParse(request.body);
+
+      if (!result.success) {
+        throw new AppError(
+          result.error.issues.map((issue) => issue.message).join(', '),
+          400,
+          'VALIDATION_ERROR',
+        );
+      }
+
+      const student = updateStudent(request.params.id, result.data);
+
+      return reply.send(
+        successResponse('Student updated successfully', student),
+      );
+    },
+  );
 }

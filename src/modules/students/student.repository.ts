@@ -7,6 +7,24 @@ export interface Student extends CreateStudentInput {
 }
 
 export class InMemoryStudentRepository implements StudentRepository {
+  update(id: string, input: Partial<CreateStudentInput>): Student | undefined {
+    const studentIndex = this.students.findIndex(
+      (student) => student.id === id,
+    );
+
+    if (studentIndex === -1) {
+      return undefined;
+    }
+
+    const updatedStudent: Student = {
+      ...this.students[studentIndex]!,
+      ...input,
+    };
+
+    this.students[studentIndex] = updatedStudent;
+
+    return updatedStudent;
+  }
   findAll(input: { page: number; limit: number; search?: string }): {
     students: Student[];
     total: number;

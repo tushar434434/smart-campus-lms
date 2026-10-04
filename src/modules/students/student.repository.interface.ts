@@ -9,6 +9,16 @@ export interface StudentRepository {
   findByEmail(email: string): Student | undefined;
 
   findByEnrollmentNumber(enrollmentNumber: string): Student | undefined;
+  update(
+    id: string,
+    input: {
+      name?: string | undefined;
+      email?: string | undefined;
+      enrollmentNumber?: string | undefined;
+      department?: string | undefined;
+      semester?: number | undefined;
+    },
+  ): Student | undefined;
 
   findAll(input: {
     page: number;
