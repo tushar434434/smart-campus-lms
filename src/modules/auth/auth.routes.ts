@@ -21,57 +21,182 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (
 ) => {
   const { service } = options;
 
-  app.post('/register', async (request, reply) => {
-    const result = registerSchema.safeParse(request.body);
+  // POST /auth/register
+  app.post(
+    '/register',
+    {
+      schema: {
+        tags: ['Authentication'],
+        summary: 'Register a new user',
+        description: 'Creates a new student or faculty account.',
 
-    if (!result.success) {
-      throw new AppError(
-        result.error.issues[0]?.message ?? 'Invalid registration data',
-        400,
-        'VALIDATION_ERROR',
+        body: {
+          type: 'object',
+          required: ['name', 'email', 'password'],
+          properties: {
+            name: {
+              type: 'string',
+              minLength: 2,
+            },
+            email: {
+              type: 'string',
+              format: 'email',
+            },
+            password: {
+              type: 'string',
+              minLength: 8,
+            },
+            role: {
+              type: 'string',
+              enum: ['student', 'faculty'],
+              default: 'student',
+            },
+          },
+        },
+
+        response: {
+          201: {
+            description: 'User registered successfully',
+            type: 'object',
+          },
+          400: {
+            description: 'Invalid registration data',
+            type: 'object',
+          },
+          409: {
+            description: 'Email already exists',
+            type: 'object',
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const result = registerSchema.safeParse(request.body);
+
+      if (!result.success) {
+        throw new AppError(
+          result.error.issues[0]?.message ?? 'Invalid registration data',
+          400,
+          'VALIDATION_ERROR',
+        );
+      }
+
+      const user = await service.register(result.data);
+
+      return reply
+        .code(201)
+        .send(successResponse('User registered successfully', user));
+    },
+  );
+
+  // POST /auth/login
+  app.post(
+    '/login',
+    {
+      schema: {
+        tags: ['Authentication'],
+        summary: 'Login user',
+        description: 'Authenticates a user and returns a JWT token.',
+
+        body: {
+          type: 'object',
+          required: ['email', 'password'],
+          properties: {
+            email: {
+              type: 'string',
+              format: 'email',
+            },
+            password: {
+              type: 'string',
+              minLength: 8,
+            },
+          },
+        },
+
+        response: {
+          200: {
+            description: 'Login successful',
+            type: 'object',
+          },
+          400: {
+            description: 'Invalid login data',
+            type: 'object',
+          },
+          401: {
+            description: 'Invalid email or password',
+            type: 'object',
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const result = loginSchema.safeParse(request.body);
+
+      if (!result.success) {
+        throw new AppError(
+          result.error.issues[0]?.message ?? 'Invalid login data',
+          400,
+          'VALIDATION_ERROR',
+        );
+      }
+
+      const user = await service.login(result.data.email, result.data.password);
+
+      const token = app.jwt.sign({
+        sub: user.id,
+        role: user.role,
+      });
+
+      return reply.send(
+        successResponse('Login successful', {
+          user,
+          token,
+        }),
       );
-    }
+    },
+  );
 
-    const user = await service.register(result.data);
+  // GET /auth/me
+  app.get(
+    '/me',
+    {
+      preHandler: authenticate,
 
-    return reply
-      .code(201)
-      .send(successResponse('User registered successfully', user));
-  });
+      schema: {
+        tags: ['Authentication'],
+        summary: 'Get current user',
+        description: 'Returns the profile of the authenticated user.',
 
-  app.post('/login', async (request, reply) => {
-    const result = loginSchema.safeParse(request.body);
+        security: [
+          {
+            bearerAuth: [],
+          },
+        ],
 
-    if (!result.success) {
-      throw new AppError(
-        result.error.issues[0]?.message ?? 'Invalid login data',
-        400,
-        'VALIDATION_ERROR',
+        response: {
+          200: {
+            description: 'Profile retrieved successfully',
+            type: 'object',
+          },
+          401: {
+            description: 'Authentication required',
+            type: 'object',
+          },
+          404: {
+            description: 'User not found',
+            type: 'object',
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const user = request.user as { sub: string };
+
+      const profile = service.getUserById(user.sub);
+
+      return reply.send(
+        successResponse('Profile retrieved successfully', profile),
       );
-    }
-
-    const user = await service.login(result.data.email, result.data.password);
-
-    const token = app.jwt.sign({
-      sub: user.id,
-      role: user.role,
-    });
-
-    return reply.send(
-      successResponse('Login successful', {
-        user,
-        token,
-      }),
-    );
-  });
-
-  app.get('/me', { preHandler: authenticate }, async (request, reply) => {
-    const user = request.user as { sub: string };
-
-    const profile = service.getUserById(user.sub);
-
-    return reply.send(
-      successResponse('Profile retrieved successfully', profile),
-    );
-  });
+    },
+  );
 };

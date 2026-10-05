@@ -1,5 +1,7 @@
 import Fastify from 'fastify';
 import jwt from '@fastify/jwt';
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
 
 import { errorHandler } from './errors/error-handler.js';
 
@@ -32,6 +34,55 @@ export function buildApp() {
     logger: true,
   });
 
+  // Swagger / OpenAPI
+  app.register(swagger, {
+    openapi: {
+      info: {
+        title: 'Smart Campus LMS API',
+        description:
+          'Backend API for the Smart Campus Learning Management System',
+        version: '1.0.0',
+      },
+      servers: [
+        {
+          url: 'http://localhost:3000',
+          description: 'Local development server',
+        },
+      ],
+      tags: [
+        { name: 'Health', description: 'System health endpoints' },
+        { name: 'Authentication', description: 'Authentication endpoints' },
+        { name: 'Courses', description: 'Course management endpoints' },
+        { name: 'Students', description: 'Student management endpoints' },
+        {
+          name: 'Enrollments',
+          description: 'Course enrollment endpoints',
+        },
+        {
+          name: 'Assignments',
+          description: 'Assignment management endpoints',
+        },
+        {
+          name: 'Submissions',
+          description: 'Assignment submission endpoints',
+        },
+      ],
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: 'http',
+            scheme: 'bearer',
+            bearerFormat: 'JWT',
+          },
+        },
+      },
+    },
+  });
+
+  app.register(swaggerUi, {
+    routePrefix: '/docs',
+  });
+
   // JWT configuration
   app.register(jwt, {
     secret:
@@ -41,6 +92,7 @@ export function buildApp() {
       expiresIn: '1h',
     },
   });
+
   // Global error handler
   app.setErrorHandler(errorHandler);
 
@@ -77,7 +129,12 @@ export function buildApp() {
   const authService = createAuthService(authRepository);
 
   // Health check
-  app.get('/health', async () => {
+  app.get('/health', {
+    schema: {
+      tags: ['Health'],
+      summary: 'Check API health',
+    },
+  }, async () => {
     return {
       success: true,
       message: 'Service is healthy',
