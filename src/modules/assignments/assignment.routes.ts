@@ -80,13 +80,12 @@ export async function assignmentRoutes(
           success: false,
           error: {
             code: 'VALIDATION_ERROR',
-            message:
-              parsed.error.issues[0]?.message ?? 'Invalid request body',
+            message: parsed.error.issues[0]?.message ?? 'Invalid request body',
           },
         });
       }
 
-      const assignment = service.createAssignment(parsed.data);
+      const assignment = await service.createAssignment(parsed.data);
 
       return reply
         .status(201)
@@ -131,7 +130,7 @@ export async function assignmentRoutes(
     async (request, reply) => {
       const { courseId } = request.params as { courseId: string };
 
-      const assignments = service.getCourseAssignments(courseId);
+      const assignments = await service.getCourseAssignments(courseId);
 
       return reply.send(
         successResponse('Assignments retrieved successfully', assignments),
@@ -176,7 +175,7 @@ export async function assignmentRoutes(
     async (request, reply) => {
       const { id } = request.params as { id: string };
 
-      const assignment = service.getAssignmentById(id);
+      const assignment = await service.getAssignmentById(id);
 
       return reply.send(
         successResponse('Assignment retrieved successfully', assignment),
@@ -191,8 +190,7 @@ export async function assignmentRoutes(
       schema: {
         tags: ['Assignments'],
         summary: 'Update an assignment',
-        description:
-          'Updates one or more fields of an existing assignment.',
+        description: 'Updates one or more fields of an existing assignment.',
 
         params: {
           type: 'object',
@@ -256,13 +254,12 @@ export async function assignmentRoutes(
           success: false,
           error: {
             code: 'VALIDATION_ERROR',
-            message:
-              parsed.error.issues[0]?.message ?? 'Invalid request body',
+            message: parsed.error.issues[0]?.message ?? 'Invalid request body',
           },
         });
       }
 
-      const assignment = service.updateAssignment(id, parsed.data);
+      const assignment = await service.updateAssignment(id, parsed.data);
 
       return reply.send(
         successResponse('Assignment updated successfully', assignment),
@@ -305,7 +302,7 @@ export async function assignmentRoutes(
     async (request, reply) => {
       const { id } = request.params as { id: string };
 
-      service.deleteAssignment(id);
+      await service.deleteAssignment(id);
 
       return reply.status(204).send();
     },

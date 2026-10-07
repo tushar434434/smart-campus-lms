@@ -207,8 +207,7 @@ export async function studentRoutes(
       schema: {
         tags: ['Students'],
         summary: 'Update a student',
-        description:
-          'Updates one or more fields of an existing student.',
+        description: 'Updates one or more fields of an existing student.',
 
         params: {
           type: 'object',

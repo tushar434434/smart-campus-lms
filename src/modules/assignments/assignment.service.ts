@@ -21,8 +21,8 @@ export function createAssignmentService(
   courseRepository: CourseRepository,
 ) {
   return {
-    createAssignment(input: CreateAssignmentInput) {
-      const course = courseRepository.findById(input.courseId);
+    async createAssignment(input: CreateAssignmentInput) {
+      const course = await courseRepository.findById(input.courseId);
 
       if (!course) {
         throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
@@ -31,8 +31,8 @@ export function createAssignmentService(
       return repository.create(input);
     },
 
-    getCourseAssignments(courseId: string) {
-      const course = courseRepository.findById(courseId);
+    async getCourseAssignments(courseId: string) {
+      const course = await courseRepository.findById(courseId);
 
       if (!course) {
         throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
@@ -41,7 +41,7 @@ export function createAssignmentService(
       return repository.findAllByCourseId(courseId);
     },
 
-    getAssignmentById(id: string) {
+    async getAssignmentById(id: string) {
       const assignment = repository.findById(id);
 
       if (!assignment) {
@@ -51,7 +51,7 @@ export function createAssignmentService(
       return assignment;
     },
 
-    updateAssignment(id: string, input: UpdateAssignmentInput) {
+    async updateAssignment(id: string, input: UpdateAssignmentInput) {
       const updateData: AssignmentUpdate = {};
 
       if (input.title !== undefined) {
@@ -79,7 +79,7 @@ export function createAssignmentService(
       return assignment;
     },
 
-    deleteAssignment(id: string) {
+    async deleteAssignment(id: string) {
       const deleted = repository.delete(id);
 
       if (!deleted) {

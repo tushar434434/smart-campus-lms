@@ -14,7 +14,7 @@ export interface Course extends CreateCourseInput {
 export class InMemoryCourseRepository implements CourseRepository {
   private courses: Course[] = [];
 
-  create(input: CreateCourseInput): Course {
+  async create(input: CreateCourseInput): Promise<Course> {
     const course: Course = {
       id: crypto.randomUUID(),
       ...input,
@@ -26,15 +26,14 @@ export class InMemoryCourseRepository implements CourseRepository {
     return course;
   }
 
-  findAll(input: ListCoursesInput): {
+  async findAll(input: ListCoursesInput): Promise<{
     courses: Course[];
     total: number;
-  } {
+  }> {
     const { page, limit, search, credits } = input;
 
     let filteredCourses = this.courses;
 
-    // Search by course title or code
     if (search) {
       const searchTerm = search.toLowerCase();
 
@@ -45,20 +44,16 @@ export class InMemoryCourseRepository implements CourseRepository {
       );
     }
 
-    // Filter by credits
     if (credits !== undefined) {
       filteredCourses = filteredCourses.filter(
         (course) => course.credits === credits,
       );
     }
 
-    // Total matching courses before pagination
     const total = filteredCourses.length;
 
-    // Calculate pagination offset
     const startIndex = (page - 1) * limit;
 
-    // Return only the requested page
     const courses = filteredCourses.slice(startIndex, startIndex + limit);
 
     return {
@@ -67,11 +62,14 @@ export class InMemoryCourseRepository implements CourseRepository {
     };
   }
 
-  findById(id: string): Course | undefined {
+  async findById(id: string): Promise<Course | undefined> {
     return this.courses.find((course) => course.id === id);
   }
 
-  update(id: string, input: UpdateCourseInput): Course | undefined {
+  async update(
+    id: string,
+    input: UpdateCourseInput,
+  ): Promise<Course | undefined> {
     const course = this.courses.find((course) => course.id === id);
 
     if (!course) {
@@ -83,7 +81,7 @@ export class InMemoryCourseRepository implements CourseRepository {
     return course;
   }
 
-  delete(id: string): boolean {
+  async delete(id: string): Promise<boolean> {
     const courseIndex = this.courses.findIndex((course) => course.id === id);
 
     if (courseIndex === -1) {

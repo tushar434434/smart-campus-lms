@@ -90,7 +90,7 @@ export async function courseRoutes(
         );
       }
 
-      const course = service.createCourse(result.data);
+      const course = await service.create(result.data);
 
       return reply
         .status(201)
@@ -160,7 +160,7 @@ export async function courseRoutes(
         );
       }
 
-      const courses = service.getCourses(result.data);
+      const courses = await service.list(result.data);
 
       return successResponse('Courses retrieved successfully', courses);
     },
@@ -200,7 +200,7 @@ export async function courseRoutes(
       },
     },
     async (request) => {
-      const course = service.getCourseById(request.params.id);
+      const course = await service.getById(request.params.id);
 
       return successResponse('Course retrieved successfully', course);
     },
@@ -287,7 +287,7 @@ export async function courseRoutes(
         );
       }
 
-      const course = service.updateCourse(request.params.id, result.data);
+      const course = await service.update(request.params.id, result.data);
 
       return successResponse('Course updated successfully', course);
     },
@@ -339,7 +339,7 @@ export async function courseRoutes(
       },
     },
     async (request) => {
-      service.deleteCourse(request.params.id);
+      await service.delete(request.params.id);
 
       return successResponse('Course deleted successfully', {
         id: request.params.id,

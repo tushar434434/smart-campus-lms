@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  student
+  faculty
+  admin
+}
+
+enum SubmissionStatus {
+  submitted
+  graded
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole
+  createdAt    DateTime @default(now())
+}
+
+model Student {
+  id               String       @id @default(uuid()) @db.Uuid
+  name             String
+  email            String       @unique
+  enrollmentNumber String       @unique
+  department       String
+  semester         Int
+  createdAt        DateTime     @default(now())
+
+  enrollments      Enrollment[]
+  submissions      Submission[]
+}
+
+model Course {
+  id          String       @id @default(uuid()) @db.Uuid
+  title       String
+  code        String       @unique
+  credits     Int
+  createdAt   DateTime     @default(now())
+
+  enrollments Enrollment[]
+  assignments Assignment[]
+}
+
+model Enrollment {
+  id         String   @id @default(uuid()) @db.Uuid
+  studentId  String   @db.Uuid
+  courseId   String   @db.Uuid
+  enrolledAt DateTime @default(now())
+
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, courseId])
+}
+
+model Assignment {
+  id          String       @id @default(uuid()) @db.Uuid
+  courseId    String       @db.Uuid
+  title       String
+  description String
+  dueAt       DateTime
+  maxMarks    Float
+  createdAt   DateTime     @default(now())
+
+  course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  submissions Submission[]
+}
+
+model Submission {
+  id           String           @id @default(uuid()) @db.Uuid
+  studentId    String           @db.Uuid
+  assignmentId String           @db.Uuid
+  content      String
+  status       SubmissionStatus @default(submitted)
+  marks        Float?
+  feedback     String?
+  submittedAt  DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  student      Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  assignment   Assignment      @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, assignmentId])
+}

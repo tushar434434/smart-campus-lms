@@ -1,8 +1,6 @@
 import { AppError } from '../../errors/app-error.js';
 import type { CourseRepository } from '../courses/course.repository.interface.js';
-
 import type { StudentRepository } from '../students/student.repository.interface.js';
-
 import type { EnrollmentRepository } from './enrollment.repository.interface.js';
 
 export function createEnrollmentService(
@@ -11,12 +9,14 @@ export function createEnrollmentService(
   courseRepository: CourseRepository,
 ) {
   return {
-    enrollStudent(studentId: string, courseId: string) {
+    async enrollStudent(studentId: string, courseId: string) {
       if (!studentRepository.findById(studentId)) {
         throw new AppError('Student not found', 404, 'STUDENT_NOT_FOUND');
       }
 
-      if (!courseRepository.findById(courseId)) {
+      const course = await courseRepository.findById(courseId);
+
+      if (!course) {
         throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
       }
 

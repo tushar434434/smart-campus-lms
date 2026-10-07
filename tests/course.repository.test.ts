@@ -8,26 +8,27 @@ describe('Course Repository', () => {
   beforeEach(() => {
     repository = new InMemoryCourseRepository();
   });
-  it('should return courses according to pagination', () => {
-    repository.create({
+
+  it('should return courses according to pagination', async () => {
+    await repository.create({
       title: 'Operating Systems',
       code: 'CS301',
       credits: 4,
     });
 
-    repository.create({
+    await repository.create({
       title: 'Database Management Systems',
       code: 'CS302',
       credits: 3,
     });
 
-    repository.create({
+    await repository.create({
       title: 'Computer Networks',
       code: 'CS303',
       credits: 4,
     });
 
-    const result = repository.findAll({
+    const result = await repository.findAll({
       page: 2,
       limit: 2,
     });
@@ -36,20 +37,21 @@ describe('Course Repository', () => {
     expect(result.total).toBe(3);
     expect(result.courses[0].code).toBe('CS303');
   });
-  it('should search courses by title', () => {
-    repository.create({
+
+  it('should search courses by title', async () => {
+    await repository.create({
       title: 'Operating Systems',
       code: 'CS301',
       credits: 4,
     });
 
-    repository.create({
+    await repository.create({
       title: 'Database Management Systems',
       code: 'CS302',
       credits: 3,
     });
 
-    const result = repository.findAll({
+    const result = await repository.findAll({
       page: 1,
       limit: 10,
       search: 'database',
@@ -58,20 +60,21 @@ describe('Course Repository', () => {
     expect(result.total).toBe(1);
     expect(result.courses[0].title).toBe('Database Management Systems');
   });
-  it('should filter courses by credits', () => {
-    repository.create({
+
+  it('should filter courses by credits', async () => {
+    await repository.create({
       title: 'Operating Systems',
       code: 'CS301',
       credits: 4,
     });
 
-    repository.create({
+    await repository.create({
       title: 'Database Management Systems',
       code: 'CS302',
       credits: 3,
     });
 
-    const result = repository.findAll({
+    const result = await repository.findAll({
       page: 1,
       limit: 10,
       credits: 4,
@@ -80,8 +83,9 @@ describe('Course Repository', () => {
     expect(result.total).toBe(1);
     expect(result.courses[0].credits).toBe(4);
   });
-  it('should create a course with an ID and timestamp', () => {
-    const course = repository.create({
+
+  it('should create a course with an ID and timestamp', async () => {
+    const course = await repository.create({
       title: 'Data Structures',
       code: 'CS301',
       credits: 4,
@@ -92,14 +96,14 @@ describe('Course Repository', () => {
     expect(course.title).toBe('Data Structures');
   });
 
-  it('should retrieve all courses', () => {
-    repository.create({
+  it('should retrieve all courses', async () => {
+    await repository.create({
       title: 'Database Management Systems',
       code: 'CS303',
       credits: 4,
     });
 
-    const result = repository.findAll({
+    const result = await repository.findAll({
       page: 1,
       limit: 10,
     });
@@ -111,28 +115,29 @@ describe('Course Repository', () => {
       code: 'CS303',
     });
   });
-  it('should retrieve a course by ID', () => {
-    const course = repository.create({
+
+  it('should retrieve a course by ID', async () => {
+    const course = await repository.create({
       title: 'Operating Systems',
       code: 'CS302',
       credits: 4,
     });
 
-    expect(repository.findById(course.id)).toEqual(course);
+    expect(await repository.findById(course.id)).toEqual(course);
   });
 
-  it('should return undefined for a nonexistent course', () => {
-    expect(repository.findById('nonexistent-id')).toBeUndefined();
+  it('should return undefined for a nonexistent course', async () => {
+    expect(await repository.findById('nonexistent-id')).toBeUndefined();
   });
 
-  it('should update a course successfully', () => {
-    const course = repository.create({
+  it('should update a course successfully', async () => {
+    const course = await repository.create({
       title: 'Database Systems',
       code: 'CS303',
       credits: 3,
     });
 
-    const updatedCourse = repository.update(course.id, {
+    const updatedCourse = await repository.update(course.id, {
       title: 'Advanced Database Systems',
     });
 
@@ -140,26 +145,26 @@ describe('Course Repository', () => {
     expect(updatedCourse?.code).toBe('CS303');
   });
 
-  it('should return undefined when updating a nonexistent course', () => {
+  it('should return undefined when updating a nonexistent course', async () => {
     expect(
-      repository.update('nonexistent-id', {
+      await repository.update('nonexistent-id', {
         title: 'Updated Course',
       }),
     ).toBeUndefined();
   });
 
-  it('should delete a course successfully', () => {
-    const course = repository.create({
+  it('should delete a course successfully', async () => {
+    const course = await repository.create({
       title: 'Computer Networks',
       code: 'CS304',
       credits: 4,
     });
 
-    expect(repository.delete(course.id)).toBe(true);
-    expect(repository.findById(course.id)).toBeUndefined();
+    expect(await repository.delete(course.id)).toBe(true);
+    expect(await repository.findById(course.id)).toBeUndefined();
   });
 
-  it('should return false when deleting a nonexistent course', () => {
-    expect(repository.delete('nonexistent-id')).toBe(false);
+  it('should return false when deleting a nonexistent course', async () => {
+    expect(await repository.delete('nonexistent-id')).toBe(false);
   });
 });

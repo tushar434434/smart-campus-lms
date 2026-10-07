@@ -74,7 +74,7 @@ export async function enrollmentRoutes(
         );
       }
 
-      const enrollment = service.enrollStudent(
+      const enrollment = await service.enrollStudent(
         result.data.studentId,
         result.data.courseId,
       );
@@ -120,7 +120,7 @@ export async function enrollmentRoutes(
       },
     },
     async (request) => {
-      const enrollments = service.getStudentEnrollments(
+      const enrollments = await service.getStudentEnrollments(
         request.params.studentId,
       );
 
@@ -164,7 +164,7 @@ export async function enrollmentRoutes(
       },
     },
     async (request, reply) => {
-      service.deleteEnrollment(request.params.id);
+      await service.deleteEnrollment(request.params.id);
 
       return reply.status(204).send();
     },

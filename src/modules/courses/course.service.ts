@@ -6,18 +6,16 @@ import type {
   ListCoursesInput,
 } from './course.schema.js';
 
-import { InMemoryCourseRepository } from './course.repository.js';
-
 import type { CourseRepository } from './course.repository.interface.js';
 
 export function createCourseService(repository: CourseRepository) {
   return {
-    createCourse(input: CreateCourseInput) {
+    async create(input: CreateCourseInput) {
       return repository.create(input);
     },
 
-    getCourses(input: ListCoursesInput) {
-      const result = repository.findAll(input);
+    async list(input: ListCoursesInput) {
+      const result = await repository.findAll(input);
 
       return {
         courses: result.courses,
@@ -30,8 +28,8 @@ export function createCourseService(repository: CourseRepository) {
       };
     },
 
-    getCourseById(id: string) {
-      const course = repository.findById(id);
+    async getById(id: string) {
+      const course = await repository.findById(id);
 
       if (!course) {
         throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
@@ -40,8 +38,8 @@ export function createCourseService(repository: CourseRepository) {
       return course;
     },
 
-    updateCourse(id: string, input: UpdateCourseInput) {
-      const course = repository.update(id, input);
+    async update(id: string, input: UpdateCourseInput) {
+      const course = await repository.update(id, input);
 
       if (!course) {
         throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
@@ -50,8 +48,8 @@ export function createCourseService(repository: CourseRepository) {
       return course;
     },
 
-    deleteCourse(id: string) {
-      const deleted = repository.delete(id);
+    async delete(id: string) {
+      const deleted = await repository.delete(id);
 
       if (!deleted) {
         throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
@@ -61,15 +59,3 @@ export function createCourseService(repository: CourseRepository) {
     },
   };
 }
-
-const defaultCourseService = createCourseService(
-  new InMemoryCourseRepository(),
-);
-
-export const {
-  createCourse,
-  getCourses,
-  getCourseById,
-  updateCourse,
-  deleteCourse,
-} = defaultCourseService;

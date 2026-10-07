@@ -78,8 +78,7 @@ export async function submissionRoutes(
           success: false,
           error: {
             code: 'VALIDATION_ERROR',
-            message:
-              parsed.error.issues[0]?.message ?? 'Invalid request body',
+            message: parsed.error.issues[0]?.message ?? 'Invalid request body',
           },
         });
       }
@@ -88,12 +87,7 @@ export async function submissionRoutes(
 
       return reply
         .status(201)
-        .send(
-          successResponse(
-            'Assignment submitted successfully',
-            submission,
-          ),
-        );
+        .send(successResponse('Assignment submitted successfully', submission));
     },
   );
 
@@ -300,8 +294,7 @@ export async function submissionRoutes(
           success: false,
           error: {
             code: 'VALIDATION_ERROR',
-            message:
-              parsed.error.issues[0]?.message ?? 'Invalid request body',
+            message: parsed.error.issues[0]?.message ?? 'Invalid request body',
           },
         });
       }
@@ -321,8 +314,7 @@ export async function submissionRoutes(
       schema: {
         tags: ['Submissions'],
         summary: 'Grade a submission',
-        description:
-          'Assigns marks and optional feedback to a submission.',
+        description: 'Assigns marks and optional feedback to a submission.',
 
         params: {
           type: 'object',
@@ -379,8 +371,7 @@ export async function submissionRoutes(
           success: false,
           error: {
             code: 'VALIDATION_ERROR',
-            message:
-              parsed.error.issues[0]?.message ?? 'Invalid request body',
+            message: parsed.error.issues[0]?.message ?? 'Invalid request body',
           },
         });
       }
