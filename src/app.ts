@@ -14,7 +14,7 @@ import { assignmentRoutes } from './modules/assignments/assignment.routes.js';
 import { submissionRoutes } from './modules/submissions/submission.routes.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
 
-export function buildApp() {
+export function buildApp(container = createContainer()) {
   const app = Fastify({
     logger: true,
   });
@@ -98,7 +98,7 @@ export function buildApp() {
     assignmentService,
     submissionService,
     authService,
-  } = createContainer();
+  } = container;
 
   // Health check
   app.get(

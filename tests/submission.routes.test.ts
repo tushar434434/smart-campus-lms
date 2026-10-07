@@ -2,9 +2,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 
 import { buildApp } from '../src/app.js';
+import { createTestContainer } from '../src/test-container.js';
 
 describe('Submission Routes', () => {
-  const app = buildApp();
+  const app = buildApp(createTestContainer());
 
   let studentId: string;
   let courseId: string;

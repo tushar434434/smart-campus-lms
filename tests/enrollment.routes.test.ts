@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/app.js';
-
+import { createTestContainer } from '../src/test-container.js';
 describe('Enrollment API', () => {
   let app: ReturnType<typeof buildApp>;
   let studentId: string;
@@ -9,7 +9,7 @@ describe('Enrollment API', () => {
   let facultyToken: string;
 
   beforeEach(async () => {
-    app = buildApp();
+    app = buildApp(createTestContainer());
     await app.ready();
 
     facultyToken = app.jwt.sign({

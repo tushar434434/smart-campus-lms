@@ -1,17 +1,16 @@
-import type {
-  FastifyError,
-  FastifyInstance,
-  FastifyReply,
-  FastifyRequest,
-} from 'fastify';
-
+import type { FastifyError, FastifyReply, FastifyRequest } from 'fastify';
 import { AppError } from './app-error.js';
 
 export function errorHandler(
   error: FastifyError | Error,
-  request: FastifyRequest,
+  _request: FastifyRequest,
   reply: FastifyReply,
 ) {
+  console.error('========== ERROR HANDLER ==========');
+  console.error(error);
+  console.error('===================================');
+
+  // Application errors
   if (error instanceof AppError) {
     return reply.status(error.statusCode).send({
       success: false,
@@ -22,18 +21,18 @@ export function errorHandler(
     });
   }
 
+  // Fastify schema validation errors
   if ('validation' in error && error.validation) {
     return reply.status(400).send({
       success: false,
       error: {
         code: 'VALIDATION_ERROR',
-        message: 'Invalid request data',
+        message: error.message,
       },
     });
   }
 
-  request.log.error(error);
-
+  // Unexpected errors
   return reply.status(500).send({
     success: false,
     error: {

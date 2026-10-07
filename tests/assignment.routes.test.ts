@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
-
+import { createTestContainer } from '../src/test-container.js';
 import { buildApp } from '../src/app.js';
 
 describe('Assignment Routes', () => {
-  const app = buildApp();
+  const app = buildApp(createTestContainer());
 
   let courseId: string;
   let assignmentId: string;

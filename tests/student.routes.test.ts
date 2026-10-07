@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
+import { createTestContainer } from '../src/test-container.js';
 import { buildApp } from '../src/app.js';
 
 describe('Student API', () => {
   let app: ReturnType<typeof buildApp>;
 
   beforeEach(() => {
-    app = buildApp();
+    app = buildApp(createTestContainer());
   });
 
   afterEach(async () => {

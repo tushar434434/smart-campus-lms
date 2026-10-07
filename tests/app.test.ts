@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildApp } from '../src/app.js';
+import { createTestContainer } from '../src/test-container.js';
 import { AppError } from '../src/errors/app-error.js';
 
 describe('Smart Campus LMS API', () => {
@@ -11,7 +12,7 @@ describe('Smart Campus LMS API', () => {
   let adminToken: string;
 
   beforeEach(async () => {
-    app = buildApp();
+    app = buildApp(createTestContainer());
 
     await app.ready();
 
@@ -165,6 +166,8 @@ describe('Smart Campus LMS API', () => {
       },
     });
 
+    expect(createResponse.statusCode).toBe(201);
+
     const createdCourse = createResponse.json().data;
 
     const response = await app.inject({
@@ -218,6 +221,8 @@ describe('Smart Campus LMS API', () => {
       },
     });
 
+    expect(createResponse.statusCode).toBe(201);
+
     const createdCourse = createResponse.json().data;
 
     const response = await app.inject({
@@ -232,7 +237,9 @@ describe('Smart Campus LMS API', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json().success).toBe(true);
     expect(response.json().data.credits).toBe(5);
-    expect(response.json().data.title).toBe('Database Management Systems');
+    expect(response.json().data.title).toBe(
+      'Database Management Systems',
+    );
   });
 
   // Course retrieval
@@ -249,6 +256,8 @@ describe('Smart Campus LMS API', () => {
       },
     });
 
+    expect(createResponse.statusCode).toBe(201);
+
     const createdCourse = createResponse.json().data;
 
     const response = await app.inject({
@@ -259,7 +268,9 @@ describe('Smart Campus LMS API', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json().success).toBe(true);
     expect(response.json().data.id).toBe(createdCourse.id);
-    expect(response.json().data.title).toBe('Database Management Systems');
+    expect(response.json().data.title).toBe(
+      'Database Management Systems',
+    );
   });
 
   it('should create a course with an ID and timestamp', async () => {
@@ -350,7 +361,7 @@ describe('Smart Campus LMS API', () => {
   // Error handling
 
   it('should handle application errors', async () => {
-    const testApp = buildApp();
+    const testApp = buildApp(createTestContainer());
 
     testApp.get('/test-error', async () => {
       throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
@@ -377,7 +388,7 @@ describe('Smart Campus LMS API', () => {
   });
 
   it('should handle unexpected errors', async () => {
-    const testApp = buildApp();
+    const testApp = buildApp(createTestContainer());
 
     testApp.get('/test-server-error', async () => {
       throw new Error('Database connection failed');
@@ -412,19 +423,22 @@ describe('Smart Campus LMS API', () => {
       headers: authHeaders(facultyToken),
       payload: {
         title: 'Data Structures',
-        code: 'CS301',
+        code: 'CS998',
         credits: 4,
       },
     });
 
-    expect(response.statusCode).toBe(201);
+    expect(
+      response.statusCode,
+      `Response body: ${response.body}`,
+    ).toBe(201);
 
     expect(response.json()).toMatchObject({
       success: true,
       message: 'Course created successfully',
       data: {
         title: 'Data Structures',
-        code: 'CS301',
+        code: 'CS998',
         credits: 4,
       },
     });
