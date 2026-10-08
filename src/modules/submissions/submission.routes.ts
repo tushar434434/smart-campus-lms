@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 
+import { authenticate } from '../../middleware/authenticate.js';
+import { authorize } from '../../middleware/authorize.js';
 import { successResponse } from '../../utils/response.js';
 
 import {
@@ -18,14 +20,16 @@ export async function submissionRoutes(
   app: FastifyInstance,
   { service }: SubmissionRoutesOptions,
 ) {
-  // Create submission
+  // Create submission: Student only
   app.post(
     '/submissions',
     {
+      preHandler: [authenticate, authorize('student')],
       schema: {
         tags: ['Submissions'],
         summary: 'Create a submission',
-        description: 'Creates a new assignment submission.',
+        description: 'Creates a new assignment submission. Students only.',
+        security: [{ bearerAuth: [] }],
         body: {
           type: 'object',
           required: ['studentId', 'assignmentId', 'content'],
@@ -43,6 +47,16 @@ export async function submissionRoutes(
           },
           400: {
             description: 'Invalid submission data',
+            type: 'object',
+            additionalProperties: true,
+          },
+          401: {
+            description: 'Authentication required',
+            type: 'object',
+            additionalProperties: true,
+          },
+          403: {
+            description: 'Student access required',
             type: 'object',
             additionalProperties: true,
           },
@@ -72,7 +86,9 @@ export async function submissionRoutes(
         });
       }
 
-      const submission = await service.createSubmission(parsed.data);
+      const user = request.user as { sub: string; role: 'student' };
+
+      const submission = await service.createSubmission(parsed.data, user);
 
       return reply
         .status(201)
@@ -80,14 +96,17 @@ export async function submissionRoutes(
     },
   );
 
-  // Get submission by ID
+  // Get submission by ID: Authenticated users
   app.get(
     '/submissions/:id',
     {
+      preHandler: [authenticate],
       schema: {
         tags: ['Submissions'],
         summary: 'Get submission by ID',
-        description: 'Returns a single submission using its ID.',
+        description:
+          'Returns a submission. Students can only view their own submissions.',
+        security: [{ bearerAuth: [] }],
         params: {
           type: 'object',
           required: ['id'],
@@ -101,6 +120,16 @@ export async function submissionRoutes(
             type: 'object',
             additionalProperties: true,
           },
+          401: {
+            description: 'Authentication required',
+            type: 'object',
+            additionalProperties: true,
+          },
+          403: {
+            description: 'Access denied',
+            type: 'object',
+            additionalProperties: true,
+          },
           404: {
             description: 'Submission not found',
             type: 'object',
@@ -111,8 +140,12 @@ export async function submissionRoutes(
     },
     async (request, reply) => {
       const { id } = request.params as { id: string };
+      const user = request.user as {
+        sub: string;
+        role: 'student' | 'faculty' | 'admin';
+      };
 
-      const submission = await service.getSubmissionById(id);
+      const submission = await service.getSubmissionById(id, user);
 
       return reply.send(
         successResponse('Submission retrieved successfully', submission),
@@ -120,14 +153,17 @@ export async function submissionRoutes(
     },
   );
 
-  // Get student submissions
+  // Get student submissions: Authenticated users
   app.get(
     '/submissions/student/:studentId',
     {
+      preHandler: [authenticate],
       schema: {
         tags: ['Submissions'],
         summary: 'Get student submissions',
-        description: 'Returns all submissions made by a student.',
+        description:
+          'Returns student submissions. Students can only view their own submissions.',
+        security: [{ bearerAuth: [] }],
         params: {
           type: 'object',
           required: ['studentId'],
@@ -141,6 +177,16 @@ export async function submissionRoutes(
             type: 'object',
             additionalProperties: true,
           },
+          401: {
+            description: 'Authentication required',
+            type: 'object',
+            additionalProperties: true,
+          },
+          403: {
+            description: 'Access denied',
+            type: 'object',
+            additionalProperties: true,
+          },
           404: {
             description: 'Student not found',
             type: 'object',
@@ -151,8 +197,15 @@ export async function submissionRoutes(
     },
     async (request, reply) => {
       const { studentId } = request.params as { studentId: string };
+      const user = request.user as {
+        sub: string;
+        role: 'student' | 'faculty' | 'admin';
+      };
 
-      const submissions = await service.getStudentSubmissions(studentId);
+      const submissions = await service.getStudentSubmissions(
+        studentId,
+        user,
+      );
 
       return reply.send(
         successResponse(
@@ -163,14 +216,17 @@ export async function submissionRoutes(
     },
   );
 
-  // Get assignment submissions
+  // Get assignment submissions: Faculty and Admin
   app.get(
     '/submissions/assignment/:assignmentId',
     {
+      preHandler: [authenticate, authorize('faculty', 'admin')],
       schema: {
         tags: ['Submissions'],
         summary: 'Get assignment submissions',
-        description: 'Returns all submissions for an assignment.',
+        description:
+          'Returns all submissions for an assignment. Faculty and admin only.',
+        security: [{ bearerAuth: [] }],
         params: {
           type: 'object',
           required: ['assignmentId'],
@@ -181,6 +237,16 @@ export async function submissionRoutes(
         response: {
           200: {
             description: 'Assignment submissions retrieved successfully',
+            type: 'object',
+            additionalProperties: true,
+          },
+          401: {
+            description: 'Authentication required',
+            type: 'object',
+            additionalProperties: true,
+          },
+          403: {
+            description: 'Faculty or admin access required',
             type: 'object',
             additionalProperties: true,
           },
@@ -197,8 +263,15 @@ export async function submissionRoutes(
         assignmentId: string;
       };
 
-      const submissions =
-        await service.getAssignmentSubmissions(assignmentId);
+      const user = request.user as {
+        sub: string;
+        role: 'student' | 'faculty' | 'admin';
+      };
+
+      const submissions = await service.getAssignmentSubmissions(
+        assignmentId,
+        user,
+      );
 
       return reply.send(
         successResponse(
@@ -209,14 +282,17 @@ export async function submissionRoutes(
     },
   );
 
-  // Update submission
+  // Update submission: Student only, own submission
   app.patch(
     '/submissions/:id',
     {
+      preHandler: [authenticate, authorize('student')],
       schema: {
         tags: ['Submissions'],
         summary: 'Update a submission',
-        description: 'Updates the content of an existing submission.',
+        description:
+          'Updates the content of the authenticated student own submission.',
+        security: [{ bearerAuth: [] }],
         params: {
           type: 'object',
           required: ['id'],
@@ -239,6 +315,16 @@ export async function submissionRoutes(
           },
           400: {
             description: 'Invalid submission data',
+            type: 'object',
+            additionalProperties: true,
+          },
+          401: {
+            description: 'Authentication required',
+            type: 'object',
+            additionalProperties: true,
+          },
+          403: {
+            description: 'Access denied',
             type: 'object',
             additionalProperties: true,
           },
@@ -265,7 +351,13 @@ export async function submissionRoutes(
         });
       }
 
-      const submission = await service.updateSubmission(id, parsed.data);
+      const user = request.user as { sub: string; role: 'student' };
+
+      const submission = await service.updateSubmission(
+        id,
+        parsed.data,
+        user,
+      );
 
       return reply.send(
         successResponse('Submission updated successfully', submission),
@@ -273,14 +365,17 @@ export async function submissionRoutes(
     },
   );
 
-  // Grade submission
+  // Grade submission: Faculty and Admin
   app.patch(
     '/submissions/:id/grade',
     {
+      preHandler: [authenticate, authorize('faculty', 'admin')],
       schema: {
         tags: ['Submissions'],
         summary: 'Grade a submission',
-        description: 'Assigns marks and optional feedback to a submission.',
+        description:
+          'Assigns marks and optional feedback to a submission. Faculty and admin only.',
+        security: [{ bearerAuth: [] }],
         params: {
           type: 'object',
           required: ['id'],
@@ -313,6 +408,16 @@ export async function submissionRoutes(
             type: 'object',
             additionalProperties: true,
           },
+          401: {
+            description: 'Authentication required',
+            type: 'object',
+            additionalProperties: true,
+          },
+          403: {
+            description: 'Faculty or admin access required',
+            type: 'object',
+            additionalProperties: true,
+          },
           404: {
             description: 'Submission not found',
             type: 'object',
@@ -336,7 +441,16 @@ export async function submissionRoutes(
         });
       }
 
-      const submission = await service.gradeSubmission(id, parsed.data);
+      const user = request.user as {
+        sub: string;
+        role: 'student' | 'faculty' | 'admin';
+      };
+
+      const submission = await service.gradeSubmission(
+        id,
+        parsed.data,
+        user,
+      );
 
       return reply.send(
         successResponse('Submission graded successfully', submission),

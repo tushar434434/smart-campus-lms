@@ -11,13 +11,31 @@ import type {
   UpdateSubmissionInput,
 } from './submission.schema.js';
 
+import type { UserRole } from '../auth/auth.schema.js';
+
+type AuthenticatedUser = {
+  sub: string;
+  role: UserRole;
+};
+
 export function createSubmissionService(
   repository: SubmissionRepository,
   studentRepository: StudentRepository,
   assignmentRepository: AssignmentRepository,
 ) {
   return {
-    async createSubmission(input: CreateSubmissionInput) {
+    async createSubmission(
+      input: CreateSubmissionInput,
+      user: AuthenticatedUser,
+    ) {
+      if (user.role === 'student' && user.sub !== input.studentId) {
+        throw new AppError(
+          'Students can only submit work for themselves',
+          403,
+          'FORBIDDEN',
+        );
+      }
+
       const student = await studentRepository.findById(input.studentId);
 
       if (!student) {
@@ -52,7 +70,7 @@ export function createSubmissionService(
       return repository.create(input);
     },
 
-    async getSubmissionById(id: string) {
+    async getSubmissionById(id: string, user: AuthenticatedUser) {
       const submission = await repository.findById(id);
 
       if (!submission) {
@@ -63,10 +81,29 @@ export function createSubmissionService(
         );
       }
 
+      if (user.role === 'student' && submission.studentId !== user.sub) {
+        throw new AppError(
+          'You do not have permission to view this submission',
+          403,
+          'FORBIDDEN',
+        );
+      }
+
       return submission;
     },
 
-    async getStudentSubmissions(studentId: string) {
+    async getStudentSubmissions(
+      studentId: string,
+      user: AuthenticatedUser,
+    ) {
+      if (user.role === 'student' && user.sub !== studentId) {
+        throw new AppError(
+          'You do not have permission to view these submissions',
+          403,
+          'FORBIDDEN',
+        );
+      }
+
       const student = await studentRepository.findById(studentId);
 
       if (!student) {
@@ -76,7 +113,10 @@ export function createSubmissionService(
       return repository.findByStudentId(studentId);
     },
 
-    async getAssignmentSubmissions(assignmentId: string) {
+    async getAssignmentSubmissions(
+      assignmentId: string,
+      _user: AuthenticatedUser,
+    ) {
       const assignment = await assignmentRepository.findById(assignmentId);
 
       if (!assignment) {
@@ -90,8 +130,12 @@ export function createSubmissionService(
       return repository.findByAssignmentId(assignmentId);
     },
 
-    async updateSubmission(id: string, input: UpdateSubmissionInput) {
-      const submission = await repository.updateContent(id, input.content);
+    async updateSubmission(
+      id: string,
+      input: UpdateSubmissionInput,
+      user: AuthenticatedUser,
+    ) {
+      const submission = await repository.findById(id);
 
       if (!submission) {
         throw new AppError(
@@ -101,10 +145,35 @@ export function createSubmissionService(
         );
       }
 
-      return submission;
+      if (user.role === 'student' && submission.studentId !== user.sub) {
+        throw new AppError(
+          'You can only update your own submission',
+          403,
+          'FORBIDDEN',
+        );
+      }
+
+      const updatedSubmission = await repository.updateContent(
+        id,
+        input.content,
+      );
+
+      if (!updatedSubmission) {
+        throw new AppError(
+          'Submission not found',
+          404,
+          'SUBMISSION_NOT_FOUND',
+        );
+      }
+
+      return updatedSubmission;
     },
 
-    async gradeSubmission(id: string, input: GradeSubmissionInput) {
+    async gradeSubmission(
+      id: string,
+      input: GradeSubmissionInput,
+      _user: AuthenticatedUser,
+    ) {
       const submission = await repository.findById(id);
 
       if (!submission) {
