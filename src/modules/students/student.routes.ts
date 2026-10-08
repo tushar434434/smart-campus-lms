@@ -27,7 +27,6 @@ export async function studentRoutes(
         tags: ['Students'],
         summary: 'Create a student',
         description: 'Creates a new student record.',
-
         body: {
           type: 'object',
           required: [
@@ -38,22 +37,10 @@ export async function studentRoutes(
             'semester',
           ],
           properties: {
-            name: {
-              type: 'string',
-              minLength: 3,
-            },
-            email: {
-              type: 'string',
-              format: 'email',
-            },
-            enrollmentNumber: {
-              type: 'string',
-              minLength: 5,
-            },
-            department: {
-              type: 'string',
-              minLength: 2,
-            },
+            name: { type: 'string', minLength: 3 },
+            email: { type: 'string', format: 'email' },
+            enrollmentNumber: { type: 'string', minLength: 5 },
+            department: { type: 'string', minLength: 2 },
             semester: {
               type: 'integer',
               minimum: 1,
@@ -61,7 +48,6 @@ export async function studentRoutes(
             },
           },
         },
-
         response: {
           201: {
             description: 'Student created successfully',
@@ -89,7 +75,7 @@ export async function studentRoutes(
         );
       }
 
-      const student = service.createStudent(result.data);
+      const student = await service.createStudent(result.data);
 
       return reply
         .status(201)
@@ -106,7 +92,6 @@ export async function studentRoutes(
         summary: 'List students',
         description:
           'Returns a paginated list of students with optional search.',
-
         querystring: {
           type: 'object',
           properties: {
@@ -121,12 +106,9 @@ export async function studentRoutes(
               maximum: 100,
               default: 10,
             },
-            search: {
-              type: 'string',
-            },
+            search: { type: 'string' },
           },
         },
-
         response: {
           200: {
             description: 'Students retrieved successfully',
@@ -154,7 +136,7 @@ export async function studentRoutes(
         );
       }
 
-      const data = service.listStudents(result.data);
+      const data = await service.listStudents(result.data);
 
       return successResponse('Students retrieved successfully', data);
     },
@@ -168,17 +150,13 @@ export async function studentRoutes(
         tags: ['Students'],
         summary: 'Get student by ID',
         description: 'Returns a single student using their ID.',
-
         params: {
           type: 'object',
           required: ['id'],
           properties: {
-            id: {
-              type: 'string',
-            },
+            id: { type: 'string' },
           },
         },
-
         response: {
           200: {
             description: 'Student retrieved successfully',
@@ -194,7 +172,7 @@ export async function studentRoutes(
       },
     },
     async (request) => {
-      const student = service.getStudentById(request.params.id);
+      const student = await service.getStudentById(request.params.id);
 
       return successResponse('Student retrieved successfully', student);
     },
@@ -208,36 +186,20 @@ export async function studentRoutes(
         tags: ['Students'],
         summary: 'Update a student',
         description: 'Updates one or more fields of an existing student.',
-
         params: {
           type: 'object',
           required: ['id'],
           properties: {
-            id: {
-              type: 'string',
-            },
+            id: { type: 'string' },
           },
         },
-
         body: {
           type: 'object',
           properties: {
-            name: {
-              type: 'string',
-              minLength: 3,
-            },
-            email: {
-              type: 'string',
-              format: 'email',
-            },
-            enrollmentNumber: {
-              type: 'string',
-              minLength: 5,
-            },
-            department: {
-              type: 'string',
-              minLength: 2,
-            },
+            name: { type: 'string', minLength: 3 },
+            email: { type: 'string', format: 'email' },
+            enrollmentNumber: { type: 'string', minLength: 5 },
+            department: { type: 'string', minLength: 2 },
             semester: {
               type: 'integer',
               minimum: 1,
@@ -245,7 +207,6 @@ export async function studentRoutes(
             },
           },
         },
-
         response: {
           200: {
             description: 'Student updated successfully',
@@ -276,7 +237,10 @@ export async function studentRoutes(
         );
       }
 
-      const student = service.updateStudent(request.params.id, result.data);
+      const student = await service.updateStudent(
+        request.params.id,
+        result.data,
+      );
 
       return reply.send(
         successResponse('Student updated successfully', student),
@@ -292,17 +256,13 @@ export async function studentRoutes(
         tags: ['Students'],
         summary: 'Delete a student',
         description: 'Deletes a student using their ID.',
-
         params: {
           type: 'object',
           required: ['id'],
           properties: {
-            id: {
-              type: 'string',
-            },
+            id: { type: 'string' },
           },
         },
-
         response: {
           204: {
             description: 'Student deleted successfully',
@@ -316,7 +276,7 @@ export async function studentRoutes(
       },
     },
     async (request, reply) => {
-      service.deleteStudent(request.params.id);
+      await service.deleteStudent(request.params.id);
 
       return reply.status(204).send();
     },

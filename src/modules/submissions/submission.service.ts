@@ -17,20 +17,26 @@ export function createSubmissionService(
   assignmentRepository: AssignmentRepository,
 ) {
   return {
-    createSubmission(input: CreateSubmissionInput) {
-      const student = studentRepository.findById(input.studentId);
+    async createSubmission(input: CreateSubmissionInput) {
+      const student = await studentRepository.findById(input.studentId);
 
       if (!student) {
         throw new AppError('Student not found', 404, 'STUDENT_NOT_FOUND');
       }
 
-      const assignment = assignmentRepository.findById(input.assignmentId);
+      const assignment = await assignmentRepository.findById(
+        input.assignmentId,
+      );
 
       if (!assignment) {
-        throw new AppError('Assignment not found', 404, 'ASSIGNMENT_NOT_FOUND');
+        throw new AppError(
+          'Assignment not found',
+          404,
+          'ASSIGNMENT_NOT_FOUND',
+        );
       }
 
-      const existing = repository.findByStudentAndAssignment(
+      const existing = await repository.findByStudentAndAssignment(
         input.studentId,
         input.assignmentId,
       );
@@ -46,18 +52,22 @@ export function createSubmissionService(
       return repository.create(input);
     },
 
-    getSubmissionById(id: string) {
-      const submission = repository.findById(id);
+    async getSubmissionById(id: string) {
+      const submission = await repository.findById(id);
 
       if (!submission) {
-        throw new AppError('Submission not found', 404, 'SUBMISSION_NOT_FOUND');
+        throw new AppError(
+          'Submission not found',
+          404,
+          'SUBMISSION_NOT_FOUND',
+        );
       }
 
       return submission;
     },
 
-    getStudentSubmissions(studentId: string) {
-      const student = studentRepository.findById(studentId);
+    async getStudentSubmissions(studentId: string) {
+      const student = await studentRepository.findById(studentId);
 
       if (!student) {
         throw new AppError('Student not found', 404, 'STUDENT_NOT_FOUND');
@@ -66,37 +76,55 @@ export function createSubmissionService(
       return repository.findByStudentId(studentId);
     },
 
-    getAssignmentSubmissions(assignmentId: string) {
-      const assignment = assignmentRepository.findById(assignmentId);
+    async getAssignmentSubmissions(assignmentId: string) {
+      const assignment = await assignmentRepository.findById(assignmentId);
 
       if (!assignment) {
-        throw new AppError('Assignment not found', 404, 'ASSIGNMENT_NOT_FOUND');
+        throw new AppError(
+          'Assignment not found',
+          404,
+          'ASSIGNMENT_NOT_FOUND',
+        );
       }
 
       return repository.findByAssignmentId(assignmentId);
     },
 
-    updateSubmission(id: string, input: UpdateSubmissionInput) {
-      const submission = repository.updateContent(id, input.content);
+    async updateSubmission(id: string, input: UpdateSubmissionInput) {
+      const submission = await repository.updateContent(id, input.content);
 
       if (!submission) {
-        throw new AppError('Submission not found', 404, 'SUBMISSION_NOT_FOUND');
+        throw new AppError(
+          'Submission not found',
+          404,
+          'SUBMISSION_NOT_FOUND',
+        );
       }
 
       return submission;
     },
 
-    gradeSubmission(id: string, input: GradeSubmissionInput) {
-      const submission = repository.findById(id);
+    async gradeSubmission(id: string, input: GradeSubmissionInput) {
+      const submission = await repository.findById(id);
 
       if (!submission) {
-        throw new AppError('Submission not found', 404, 'SUBMISSION_NOT_FOUND');
+        throw new AppError(
+          'Submission not found',
+          404,
+          'SUBMISSION_NOT_FOUND',
+        );
       }
 
-      const assignment = assignmentRepository.findById(submission.assignmentId);
+      const assignment = await assignmentRepository.findById(
+        submission.assignmentId,
+      );
 
       if (!assignment) {
-        throw new AppError('Assignment not found', 404, 'ASSIGNMENT_NOT_FOUND');
+        throw new AppError(
+          'Assignment not found',
+          404,
+          'ASSIGNMENT_NOT_FOUND',
+        );
       }
 
       if (input.marks > assignment.maxMarks) {

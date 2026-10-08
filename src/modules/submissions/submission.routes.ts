@@ -26,26 +26,15 @@ export async function submissionRoutes(
         tags: ['Submissions'],
         summary: 'Create a submission',
         description: 'Creates a new assignment submission.',
-
         body: {
           type: 'object',
           required: ['studentId', 'assignmentId', 'content'],
           properties: {
-            studentId: {
-              type: 'string',
-              format: 'uuid',
-            },
-            assignmentId: {
-              type: 'string',
-              format: 'uuid',
-            },
-            content: {
-              type: 'string',
-              minLength: 10,
-            },
+            studentId: { type: 'string', format: 'uuid' },
+            assignmentId: { type: 'string', format: 'uuid' },
+            content: { type: 'string', minLength: 10 },
           },
         },
-
         response: {
           201: {
             description: 'Assignment submitted successfully',
@@ -83,7 +72,7 @@ export async function submissionRoutes(
         });
       }
 
-      const submission = service.createSubmission(parsed.data);
+      const submission = await service.createSubmission(parsed.data);
 
       return reply
         .status(201)
@@ -99,18 +88,13 @@ export async function submissionRoutes(
         tags: ['Submissions'],
         summary: 'Get submission by ID',
         description: 'Returns a single submission using its ID.',
-
         params: {
           type: 'object',
           required: ['id'],
           properties: {
-            id: {
-              type: 'string',
-              format: 'uuid',
-            },
+            id: { type: 'string', format: 'uuid' },
           },
         },
-
         response: {
           200: {
             description: 'Submission retrieved successfully',
@@ -128,7 +112,7 @@ export async function submissionRoutes(
     async (request, reply) => {
       const { id } = request.params as { id: string };
 
-      const submission = service.getSubmissionById(id);
+      const submission = await service.getSubmissionById(id);
 
       return reply.send(
         successResponse('Submission retrieved successfully', submission),
@@ -144,18 +128,13 @@ export async function submissionRoutes(
         tags: ['Submissions'],
         summary: 'Get student submissions',
         description: 'Returns all submissions made by a student.',
-
         params: {
           type: 'object',
           required: ['studentId'],
           properties: {
-            studentId: {
-              type: 'string',
-              format: 'uuid',
-            },
+            studentId: { type: 'string', format: 'uuid' },
           },
         },
-
         response: {
           200: {
             description: 'Student submissions retrieved successfully',
@@ -173,7 +152,7 @@ export async function submissionRoutes(
     async (request, reply) => {
       const { studentId } = request.params as { studentId: string };
 
-      const submissions = service.getStudentSubmissions(studentId);
+      const submissions = await service.getStudentSubmissions(studentId);
 
       return reply.send(
         successResponse(
@@ -192,18 +171,13 @@ export async function submissionRoutes(
         tags: ['Submissions'],
         summary: 'Get assignment submissions',
         description: 'Returns all submissions for an assignment.',
-
         params: {
           type: 'object',
           required: ['assignmentId'],
           properties: {
-            assignmentId: {
-              type: 'string',
-              format: 'uuid',
-            },
+            assignmentId: { type: 'string', format: 'uuid' },
           },
         },
-
         response: {
           200: {
             description: 'Assignment submissions retrieved successfully',
@@ -223,7 +197,8 @@ export async function submissionRoutes(
         assignmentId: string;
       };
 
-      const submissions = service.getAssignmentSubmissions(assignmentId);
+      const submissions =
+        await service.getAssignmentSubmissions(assignmentId);
 
       return reply.send(
         successResponse(
@@ -242,29 +217,20 @@ export async function submissionRoutes(
         tags: ['Submissions'],
         summary: 'Update a submission',
         description: 'Updates the content of an existing submission.',
-
         params: {
           type: 'object',
           required: ['id'],
           properties: {
-            id: {
-              type: 'string',
-              format: 'uuid',
-            },
+            id: { type: 'string', format: 'uuid' },
           },
         },
-
         body: {
           type: 'object',
           required: ['content'],
           properties: {
-            content: {
-              type: 'string',
-              minLength: 10,
-            },
+            content: { type: 'string', minLength: 10 },
           },
         },
-
         response: {
           200: {
             description: 'Submission updated successfully',
@@ -299,7 +265,7 @@ export async function submissionRoutes(
         });
       }
 
-      const submission = service.updateSubmission(id, parsed.data);
+      const submission = await service.updateSubmission(id, parsed.data);
 
       return reply.send(
         successResponse('Submission updated successfully', submission),
@@ -315,18 +281,13 @@ export async function submissionRoutes(
         tags: ['Submissions'],
         summary: 'Grade a submission',
         description: 'Assigns marks and optional feedback to a submission.',
-
         params: {
           type: 'object',
           required: ['id'],
           properties: {
-            id: {
-              type: 'string',
-              format: 'uuid',
-            },
+            id: { type: 'string', format: 'uuid' },
           },
         },
-
         body: {
           type: 'object',
           required: ['marks'],
@@ -341,7 +302,6 @@ export async function submissionRoutes(
             },
           },
         },
-
         response: {
           200: {
             description: 'Submission graded successfully',
@@ -376,7 +336,7 @@ export async function submissionRoutes(
         });
       }
 
-      const submission = service.gradeSubmission(id, parsed.data);
+      const submission = await service.gradeSubmission(id, parsed.data);
 
       return reply.send(
         successResponse('Submission graded successfully', submission),

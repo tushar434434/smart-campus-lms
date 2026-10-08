@@ -1,11 +1,9 @@
 import { PrismaClient } from '../../generated/prisma/client.js';
-
 import type {
   CreateCourseInput,
   UpdateCourseInput,
   ListCoursesInput,
 } from './course.schema.js';
-
 import type { Course } from './course.repository.js';
 import type { CourseRepository } from './course.repository.interface.js';
 
@@ -13,17 +11,22 @@ export class PrismaCourseRepository implements CourseRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   async create(input: CreateCourseInput): Promise<Course> {
-    const course = await this.prisma.course.create({
-      data: input,
-    });
+    try {
+      const course = await this.prisma.course.create({
+        data: input,
+      });
 
-    return {
-      id: course.id,
-      title: course.title,
-      code: course.code,
-      credits: course.credits,
-      createdAt: course.createdAt.toISOString(),
-    };
+      return {
+        id: course.id,
+        title: course.title,
+        code: course.code,
+        credits: course.credits,
+        createdAt: course.createdAt.toISOString(),
+      };
+    } catch (error) {
+      console.error('PRISMA COURSE CREATE ERROR:', error);
+      throw error;
+    }
   }
 
   async findAll(
@@ -62,7 +65,10 @@ export class PrismaCourseRepository implements CourseRepository {
           createdAt: 'desc',
         },
       }),
-      this.prisma.course.count({ where }),
+
+      this.prisma.course.count({
+        where,
+      }),
     ]);
 
     return {
@@ -99,34 +105,35 @@ export class PrismaCourseRepository implements CourseRepository {
     id: string,
     input: UpdateCourseInput,
   ): Promise<Course | undefined> {
-    const course = await this.prisma.course
-      .update({
+    try {
+      const course = await this.prisma.course.update({
         where: { id },
         data: {
           ...(input.title !== undefined && {
             title: input.title,
           }),
+
           ...(input.code !== undefined && {
             code: input.code,
           }),
+
           ...(input.credits !== undefined && {
             credits: input.credits,
           }),
         },
-      })
-      .catch(() => null);
+      });
 
-    if (!course) {
+      return {
+        id: course.id,
+        title: course.title,
+        code: course.code,
+        credits: course.credits,
+        createdAt: course.createdAt.toISOString(),
+      };
+    } catch (error) {
+      console.error('PRISMA COURSE UPDATE ERROR:', error);
       return undefined;
     }
-
-    return {
-      id: course.id,
-      title: course.title,
-      code: course.code,
-      credits: course.credits,
-      createdAt: course.createdAt.toISOString(),
-    };
   }
 
   async delete(id: string): Promise<boolean> {
@@ -136,7 +143,8 @@ export class PrismaCourseRepository implements CourseRepository {
       });
 
       return true;
-    } catch {
+    } catch (error) {
+      console.error('PRISMA COURSE DELETE ERROR:', error);
       return false;
     }
   }

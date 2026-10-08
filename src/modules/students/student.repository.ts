@@ -7,7 +7,38 @@ export interface Student extends CreateStudentInput {
 }
 
 export class InMemoryStudentRepository implements StudentRepository {
-  delete(id: string): boolean {
+  private students: Student[] = [];
+
+  async create(input: CreateStudentInput): Promise<Student> {
+    const student: Student = {
+      id: crypto.randomUUID(),
+      ...input,
+      createdAt: new Date().toISOString(),
+    };
+
+    this.students.push(student);
+    return student;
+  }
+
+  async findById(id: string): Promise<Student | undefined> {
+    return this.students.find((student) => student.id === id);
+  }
+
+  async findByEmail(email: string): Promise<Student | undefined> {
+    return this.students.find(
+      (student) => student.email.toLowerCase() === email.toLowerCase(),
+    );
+  }
+
+  async findByEnrollmentNumber(
+    enrollmentNumber: string,
+  ): Promise<Student | undefined> {
+    return this.students.find(
+      (student) => student.enrollmentNumber === enrollmentNumber,
+    );
+  }
+
+  async delete(id: string): Promise<boolean> {
     const index = this.students.findIndex((student) => student.id === id);
 
     if (index === -1) {
@@ -17,7 +48,11 @@ export class InMemoryStudentRepository implements StudentRepository {
     this.students.splice(index, 1);
     return true;
   }
-  update(id: string, input: Partial<CreateStudentInput>): Student | undefined {
+
+  async update(
+    id: string,
+    input: Partial<CreateStudentInput>,
+  ): Promise<Student | undefined> {
     const studentIndex = this.students.findIndex(
       (student) => student.id === id,
     );
@@ -35,10 +70,12 @@ export class InMemoryStudentRepository implements StudentRepository {
 
     return updatedStudent;
   }
-  findAll(input: { page: number; limit: number; search?: string }): {
-    students: Student[];
-    total: number;
-  } {
+
+  async findAll(input: {
+    page: number;
+    limit: number;
+    search?: string;
+  }): Promise<{ students: Student[]; total: number }> {
     let filteredStudents = [...this.students];
 
     if (input.search) {
@@ -53,7 +90,6 @@ export class InMemoryStudentRepository implements StudentRepository {
     }
 
     const total = filteredStudents.length;
-
     const startIndex = (input.page - 1) * input.limit;
 
     const students = filteredStudents.slice(
@@ -62,34 +98,5 @@ export class InMemoryStudentRepository implements StudentRepository {
     );
 
     return { students, total };
-  }
-  private students: Student[] = [];
-
-  create(input: CreateStudentInput): Student {
-    const student: Student = {
-      id: crypto.randomUUID(),
-      ...input,
-      createdAt: new Date().toISOString(),
-    };
-
-    this.students.push(student);
-
-    return student;
-  }
-
-  findById(id: string): Student | undefined {
-    return this.students.find((student) => student.id === id);
-  }
-
-  findByEmail(email: string): Student | undefined {
-    return this.students.find(
-      (student) => student.email.toLowerCase() === email.toLowerCase(),
-    );
-  }
-
-  findByEnrollmentNumber(enrollmentNumber: string): Student | undefined {
-    return this.students.find(
-      (student) => student.enrollmentNumber === enrollmentNumber,
-    );
   }
 }

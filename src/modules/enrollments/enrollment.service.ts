@@ -10,7 +10,9 @@ export function createEnrollmentService(
 ) {
   return {
     async enrollStudent(studentId: string, courseId: string) {
-      if (!studentRepository.findById(studentId)) {
+      const student = await studentRepository.findById(studentId);
+
+      if (!student) {
         throw new AppError('Student not found', 404, 'STUDENT_NOT_FOUND');
       }
 
@@ -20,7 +22,10 @@ export function createEnrollmentService(
         throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
       }
 
-      const existing = repository.findByStudentAndCourse(studentId, courseId);
+      const existing = await repository.findByStudentAndCourse(
+        studentId,
+        courseId,
+      );
 
       if (existing) {
         throw new AppError(
@@ -33,17 +38,25 @@ export function createEnrollmentService(
       return repository.create({ studentId, courseId });
     },
 
-    getStudentEnrollments(studentId: string) {
-      if (!studentRepository.findById(studentId)) {
+    async getStudentEnrollments(studentId: string) {
+      const student = await studentRepository.findById(studentId);
+
+      if (!student) {
         throw new AppError('Student not found', 404, 'STUDENT_NOT_FOUND');
       }
 
       return repository.findByStudentId(studentId);
     },
 
-    deleteEnrollment(id: string) {
-      if (!repository.delete(id)) {
-        throw new AppError('Enrollment not found', 404, 'ENROLLMENT_NOT_FOUND');
+    async deleteEnrollment(id: string) {
+      const deleted = await repository.delete(id);
+
+      if (!deleted) {
+        throw new AppError(
+          'Enrollment not found',
+          404,
+          'ENROLLMENT_NOT_FOUND',
+        );
       }
     },
   };

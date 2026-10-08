@@ -14,7 +14,17 @@ import { assignmentRoutes } from './modules/assignments/assignment.routes.js';
 import { submissionRoutes } from './modules/submissions/submission.routes.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
 
-export function buildApp(container = createContainer()) {
+export function buildApp(
+  container: Pick<
+    ReturnType<typeof createContainer>,
+    | 'courseService'
+    | 'studentService'
+    | 'enrollmentService'
+    | 'assignmentService'
+    | 'submissionService'
+    | 'authService'
+  > = createContainer(),
+) {
   const app = Fastify({
     logger: true,
   });

@@ -12,8 +12,8 @@ import type { StudentRepository } from './student.repository.interface.js';
 
 export function createStudentService(repository: StudentRepository) {
   return {
-    deleteStudent(id: string) {
-      const deleted = repository.delete(id);
+    async deleteStudent(id: string) {
+      const deleted = await repository.delete(id);
 
       if (!deleted) {
         throw new AppError('Student not found', 404, 'STUDENT_NOT_FOUND');
@@ -21,8 +21,9 @@ export function createStudentService(repository: StudentRepository) {
 
       return true;
     },
-    createStudent(input: CreateStudentInput) {
-      const existingEmail = repository.findByEmail(input.email);
+
+    async createStudent(input: CreateStudentInput) {
+      const existingEmail = await repository.findByEmail(input.email);
 
       if (existingEmail) {
         throw new AppError(
@@ -32,7 +33,7 @@ export function createStudentService(repository: StudentRepository) {
         );
       }
 
-      const existingEnrollment = repository.findByEnrollmentNumber(
+      const existingEnrollment = await repository.findByEnrollmentNumber(
         input.enrollmentNumber,
       );
 
@@ -47,8 +48,8 @@ export function createStudentService(repository: StudentRepository) {
       return repository.create(input);
     },
 
-    getStudentById(id: string) {
-      const student = repository.findById(id);
+    async getStudentById(id: string) {
+      const student = await repository.findById(id);
 
       if (!student) {
         throw new AppError('Student not found', 404, 'STUDENT_NOT_FOUND');
@@ -57,15 +58,15 @@ export function createStudentService(repository: StudentRepository) {
       return student;
     },
 
-    updateStudent(id: string, input: UpdateStudentInput) {
-      const student = repository.findById(id);
+    async updateStudent(id: string, input: UpdateStudentInput) {
+      const student = await repository.findById(id);
 
       if (!student) {
         throw new AppError('Student not found', 404, 'STUDENT_NOT_FOUND');
       }
 
       if (input.email && input.email !== student.email) {
-        const existingEmail = repository.findByEmail(input.email);
+        const existingEmail = await repository.findByEmail(input.email);
 
         if (existingEmail) {
           throw new AppError(
@@ -80,7 +81,7 @@ export function createStudentService(repository: StudentRepository) {
         input.enrollmentNumber &&
         input.enrollmentNumber !== student.enrollmentNumber
       ) {
-        const existingEnrollment = repository.findByEnrollmentNumber(
+        const existingEnrollment = await repository.findByEnrollmentNumber(
           input.enrollmentNumber,
         );
 
@@ -96,8 +97,8 @@ export function createStudentService(repository: StudentRepository) {
       return repository.update(id, input);
     },
 
-    listStudents(input: ListStudentsInput) {
-      const { students, total } = repository.findAll(input);
+    async listStudents(input: ListStudentsInput) {
+      const { students, total } = await repository.findAll(input);
 
       return {
         students,
