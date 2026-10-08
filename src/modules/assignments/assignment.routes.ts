@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 
+import { authenticate } from '../../middleware/authenticate.js';
+import { authorize } from '../../middleware/authorize.js';
 import { successResponse } from '../../utils/response.js';
 
 import {
@@ -17,14 +19,17 @@ export async function assignmentRoutes(
   app: FastifyInstance,
   { service }: AssignmentRoutesOptions,
 ) {
-  // Create assignment
+  // Create assignment: Faculty and Admin only
   app.post(
     '/assignments',
     {
+      preHandler: [authenticate, authorize('faculty', 'admin')],
       schema: {
         tags: ['Assignments'],
         summary: 'Create an assignment',
-        description: 'Creates a new assignment for a course.',
+        description:
+          'Creates a new assignment for a course. Faculty and admin users only.',
+        security: [{ bearerAuth: [] }],
 
         body: {
           type: 'object',
@@ -64,6 +69,16 @@ export async function assignmentRoutes(
             type: 'object',
             additionalProperties: true,
           },
+          401: {
+            description: 'Authentication required',
+            type: 'object',
+            additionalProperties: true,
+          },
+          403: {
+            description: 'Faculty or admin access required',
+            type: 'object',
+            additionalProperties: true,
+          },
           404: {
             description: 'Course not found',
             type: 'object',
@@ -93,14 +108,17 @@ export async function assignmentRoutes(
     },
   );
 
-  // Get assignments for a course
+  // Get assignments for a course: Authenticated users
   app.get(
     '/assignments/course/:courseId',
     {
+      preHandler: [authenticate],
       schema: {
         tags: ['Assignments'],
         summary: 'Get course assignments',
-        description: 'Returns all assignments belonging to a course.',
+        description:
+          'Returns all assignments belonging to a course. Authenticated users only.',
+        security: [{ bearerAuth: [] }],
 
         params: {
           type: 'object',
@@ -116,6 +134,11 @@ export async function assignmentRoutes(
         response: {
           200: {
             description: 'Assignments retrieved successfully',
+            type: 'object',
+            additionalProperties: true,
+          },
+          401: {
+            description: 'Authentication required',
             type: 'object',
             additionalProperties: true,
           },
@@ -138,14 +161,17 @@ export async function assignmentRoutes(
     },
   );
 
-  // Get assignment by ID
+  // Get assignment by ID: Authenticated users
   app.get(
     '/assignments/:id',
     {
+      preHandler: [authenticate],
       schema: {
         tags: ['Assignments'],
         summary: 'Get assignment by ID',
-        description: 'Returns a single assignment using its ID.',
+        description:
+          'Returns a single assignment using its ID. Authenticated users only.',
+        security: [{ bearerAuth: [] }],
 
         params: {
           type: 'object',
@@ -161,6 +187,11 @@ export async function assignmentRoutes(
         response: {
           200: {
             description: 'Assignment retrieved successfully',
+            type: 'object',
+            additionalProperties: true,
+          },
+          401: {
+            description: 'Authentication required',
             type: 'object',
             additionalProperties: true,
           },
@@ -183,14 +214,17 @@ export async function assignmentRoutes(
     },
   );
 
-  // Update assignment
+  // Update assignment: Faculty and Admin only
   app.patch(
     '/assignments/:id',
     {
+      preHandler: [authenticate, authorize('faculty', 'admin')],
       schema: {
         tags: ['Assignments'],
         summary: 'Update an assignment',
-        description: 'Updates one or more fields of an existing assignment.',
+        description:
+          'Updates one or more fields of an existing assignment. Faculty and admin users only.',
+        security: [{ bearerAuth: [] }],
 
         params: {
           type: 'object',
@@ -236,6 +270,16 @@ export async function assignmentRoutes(
             type: 'object',
             additionalProperties: true,
           },
+          401: {
+            description: 'Authentication required',
+            type: 'object',
+            additionalProperties: true,
+          },
+          403: {
+            description: 'Faculty or admin access required',
+            type: 'object',
+            additionalProperties: true,
+          },
           404: {
             description: 'Assignment not found',
             type: 'object',
@@ -267,14 +311,16 @@ export async function assignmentRoutes(
     },
   );
 
-  // Delete assignment
+  // Delete assignment: Admin only
   app.delete(
     '/assignments/:id',
     {
+      preHandler: [authenticate, authorize('admin')],
       schema: {
         tags: ['Assignments'],
         summary: 'Delete an assignment',
-        description: 'Deletes an assignment using its ID.',
+        description: 'Deletes an assignment. Admin users only.',
+        security: [{ bearerAuth: [] }],
 
         params: {
           type: 'object',
@@ -290,6 +336,16 @@ export async function assignmentRoutes(
         response: {
           204: {
             description: 'Assignment deleted successfully',
+          },
+          401: {
+            description: 'Authentication required',
+            type: 'object',
+            additionalProperties: true,
+          },
+          403: {
+            description: 'Admin access required',
+            type: 'object',
+            additionalProperties: true,
           },
           404: {
             description: 'Assignment not found',

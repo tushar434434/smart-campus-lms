@@ -9,6 +9,7 @@ describe('Assignment Routes', () => {
   let courseId: string;
   let assignmentId: string;
   let facultyToken: string;
+  let adminToken: string;
 
   beforeEach(async () => {
     await app.ready();
@@ -16,6 +17,11 @@ describe('Assignment Routes', () => {
     facultyToken = app.jwt.sign({
       sub: 'faculty-test-id',
       role: 'faculty',
+    });
+
+    adminToken = app.jwt.sign({
+      sub: 'admin-test-id',
+      role: 'admin',
     });
 
     const courseResponse = await app.inject({
@@ -38,6 +44,9 @@ describe('Assignment Routes', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/assignments',
+      headers: {
+        authorization: `Bearer ${facultyToken}`,
+      },
       payload: {
         courseId,
         title: 'Array Assignment',
@@ -57,6 +66,9 @@ describe('Assignment Routes', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/assignments',
+      headers: {
+        authorization: `Bearer ${facultyToken}`,
+      },
       payload: {
         courseId,
         title: 'A',
@@ -74,6 +86,9 @@ describe('Assignment Routes', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/assignments',
+      headers: {
+        authorization: `Bearer ${facultyToken}`,
+      },
       payload: {
         courseId: randomUUID(),
         title: 'Array Assignment',
@@ -91,6 +106,9 @@ describe('Assignment Routes', () => {
     const response = await app.inject({
       method: 'GET',
       url: `/assignments/course/${courseId}`,
+      headers: {
+        authorization: `Bearer ${facultyToken}`,
+      },
     });
 
     expect(response.statusCode).toBe(200);
@@ -101,6 +119,9 @@ describe('Assignment Routes', () => {
     const response = await app.inject({
       method: 'GET',
       url: `/assignments/${randomUUID()}`,
+      headers: {
+        authorization: `Bearer ${facultyToken}`,
+      },
     });
 
     expect(response.statusCode).toBe(404);
@@ -111,6 +132,9 @@ describe('Assignment Routes', () => {
     const createResponse = await app.inject({
       method: 'POST',
       url: '/assignments',
+      headers: {
+        authorization: `Bearer ${facultyToken}`,
+      },
       payload: {
         courseId,
         title: 'Original Assignment',
@@ -125,6 +149,9 @@ describe('Assignment Routes', () => {
     const response = await app.inject({
       method: 'PATCH',
       url: `/assignments/${id}`,
+      headers: {
+        authorization: `Bearer ${facultyToken}`,
+      },
       payload: {
         title: 'Updated Assignment',
       },
@@ -138,6 +165,9 @@ describe('Assignment Routes', () => {
     const createResponse = await app.inject({
       method: 'POST',
       url: '/assignments',
+      headers: {
+        authorization: `Bearer ${facultyToken}`,
+      },
       payload: {
         courseId,
         title: 'Delete Me',
@@ -152,6 +182,9 @@ describe('Assignment Routes', () => {
     const response = await app.inject({
       method: 'DELETE',
       url: `/assignments/${id}`,
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+      },
     });
 
     expect(response.statusCode).toBe(204);
@@ -161,6 +194,9 @@ describe('Assignment Routes', () => {
     const response = await app.inject({
       method: 'DELETE',
       url: `/assignments/${randomUUID()}`,
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+      },
     });
 
     expect(response.statusCode).toBe(404);
