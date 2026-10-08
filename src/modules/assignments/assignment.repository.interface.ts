@@ -1,24 +1,20 @@
-export interface Assignment {
-  id: string;
-  courseId: string;
-  title: string;
-  description: string;
-  dueAt: string;
-  maxMarks: number;
-  createdAt: string;
-}
+import type { Assignment } from './assignment.repository.js';
+
+export type { Assignment };
 
 export interface AssignmentRepository {
-  create(input: Omit<Assignment, 'id' | 'createdAt'>): Assignment;
+  create(
+    input: Omit<Assignment, 'id' | 'createdAt'>,
+  ): Promise<Assignment>;
 
-  findAllByCourseId(courseId: string): Assignment[];
+  findAllByCourseId(courseId: string): Promise<Assignment[]>;
 
-  findById(id: string): Assignment | undefined;
+  findById(id: string): Promise<Assignment | undefined>;
 
   update(
     id: string,
     input: Partial<Omit<Assignment, 'id' | 'courseId' | 'createdAt'>>,
-  ): Assignment | undefined;
+  ): Promise<Assignment | undefined>;
 
-  delete(id: string): boolean;
+  delete(id: string): Promise<boolean>;
 }

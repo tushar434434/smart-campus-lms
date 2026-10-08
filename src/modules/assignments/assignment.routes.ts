@@ -130,7 +130,7 @@ export async function assignmentRoutes(
     async (request, reply) => {
       const { courseId } = request.params as { courseId: string };
 
-      const assignments = await service.getCourseAssignments(courseId);
+      const assignments = await service.getAssignmentsByCourse(courseId);
 
       return reply.send(
         successResponse('Assignments retrieved successfully', assignments),

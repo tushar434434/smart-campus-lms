@@ -1,11 +1,9 @@
 import 'dotenv/config';
 
+import { PrismaAssignmentRepository } from './modules/assignments/assignment.prisma.repository.js';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from './generated/prisma/client.js';
 
-import {
-  InMemoryAssignmentRepository,
-} from './modules/assignments/assignment.repository.js';
 import { createAssignmentService } from './modules/assignments/assignment.service.js';
 
 import { InMemoryAuthRepository } from './modules/auth/auth.repository.js';
@@ -45,9 +43,9 @@ export function createContainer() {
   // Repositories
   const courseRepository = new PrismaCourseRepository(prisma);
   const studentRepository = new PrismaStudentRepository(prisma);
+  const assignmentRepository = new PrismaAssignmentRepository(prisma);
 
   const enrollmentRepository = new InMemoryEnrollmentRepository();
-  const assignmentRepository = new InMemoryAssignmentRepository();
   const submissionRepository = new InMemorySubmissionRepository();
   const authRepository = new InMemoryAuthRepository();
 
