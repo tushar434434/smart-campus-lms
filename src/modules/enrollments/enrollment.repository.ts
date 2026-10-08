@@ -1,13 +1,20 @@
 import { randomUUID } from 'node:crypto';
-import type {
-  Enrollment,
-  EnrollmentRepository,
-} from './enrollment.repository.interface.js';
+import type { EnrollmentRepository } from './enrollment.repository.interface.js';
+
+export interface Enrollment {
+  id: string;
+  studentId: string;
+  courseId: string;
+  enrolledAt: string;
+}
 
 export class InMemoryEnrollmentRepository implements EnrollmentRepository {
   private enrollments: Enrollment[] = [];
 
-  create(input: { studentId: string; courseId: string }): Enrollment {
+  async create(input: {
+    studentId: string;
+    courseId: string;
+  }): Promise<Enrollment> {
     const enrollment: Enrollment = {
       id: randomUUID(),
       ...input,
@@ -18,27 +25,28 @@ export class InMemoryEnrollmentRepository implements EnrollmentRepository {
     return enrollment;
   }
 
-  findById(id: string): Enrollment | undefined {
+  async findById(id: string): Promise<Enrollment | undefined> {
     return this.enrollments.find((enrollment) => enrollment.id === id);
   }
 
-  findByStudentId(studentId: string): Enrollment[] {
+  async findByStudentId(studentId: string): Promise<Enrollment[]> {
     return this.enrollments.filter(
       (enrollment) => enrollment.studentId === studentId,
     );
   }
 
-  findByStudentAndCourse(
+  async findByStudentAndCourse(
     studentId: string,
     courseId: string,
-  ): Enrollment | undefined {
+  ): Promise<Enrollment | undefined> {
     return this.enrollments.find(
       (enrollment) =>
-        enrollment.studentId === studentId && enrollment.courseId === courseId,
+        enrollment.studentId === studentId &&
+        enrollment.courseId === courseId,
     );
   }
 
-  delete(id: string): boolean {
+  async delete(id: string): Promise<boolean> {
     const index = this.enrollments.findIndex(
       (enrollment) => enrollment.id === id,
     );

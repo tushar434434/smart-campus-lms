@@ -1,21 +1,21 @@
-export interface Enrollment {
-  id: string;
-  studentId: string;
-  courseId: string;
-  enrolledAt: string;
-}
+import type { Enrollment } from './enrollment.repository.js';
+
+export type { Enrollment };
 
 export interface EnrollmentRepository {
-  create(input: { studentId: string; courseId: string }): Enrollment;
+  create(input: {
+    studentId: string;
+    courseId: string;
+  }): Promise<Enrollment>;
 
-  findById(id: string): Enrollment | undefined;
+  findById(id: string): Promise<Enrollment | undefined>;
 
-  findByStudentId(studentId: string): Enrollment[];
+  findByStudentId(studentId: string): Promise<Enrollment[]>;
 
   findByStudentAndCourse(
     studentId: string,
     courseId: string,
-  ): Enrollment | undefined;
+  ): Promise<Enrollment | undefined>;
 
-  delete(id: string): boolean;
+  delete(id: string): Promise<boolean>;
 }
