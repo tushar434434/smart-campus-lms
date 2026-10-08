@@ -10,7 +10,7 @@ export function createAuthService(repository: AuthRepository) {
     async register(input: RegisterInput): Promise<Omit<User, 'passwordHash'>> {
       const email = input.email.toLowerCase();
 
-      const existingUser = repository.findByEmail(email);
+      const existingUser = await repository.findByEmail(email);
 
       if (existingUser) {
         throw new AppError(
@@ -22,7 +22,7 @@ export function createAuthService(repository: AuthRepository) {
 
       const passwordHash = await bcrypt.hash(input.password, 12);
 
-      const user = repository.create({
+      const user = await repository.create({
         name: input.name,
         email,
         passwordHash,
@@ -35,7 +35,7 @@ export function createAuthService(repository: AuthRepository) {
     },
 
     async login(email: string, password: string) {
-      const user = repository.findByEmail(email.toLowerCase());
+      const user = await repository.findByEmail(email.toLowerCase());
 
       if (!user) {
         throw new AppError(
@@ -45,7 +45,10 @@ export function createAuthService(repository: AuthRepository) {
         );
       }
 
-      const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+      const isPasswordValid = await bcrypt.compare(
+        password,
+        user.passwordHash,
+      );
 
       if (!isPasswordValid) {
         throw new AppError(
@@ -60,8 +63,8 @@ export function createAuthService(repository: AuthRepository) {
       return safeUser;
     },
 
-    getUserById(id: string) {
-      const user = repository.findById(id);
+    async getUserById(id: string) {
+      const user = await repository.findById(id);
 
       if (!user) {
         throw new AppError('User not found', 404, 'USER_NOT_FOUND');

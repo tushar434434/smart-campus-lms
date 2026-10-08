@@ -8,11 +8,11 @@ export type CreateUserInput = {
 };
 
 export interface AuthRepository {
-  create(input: CreateUserInput): User;
+  create(input: CreateUserInput): Promise<User>;
 
-  findByEmail(email: string): User | undefined;
+  findByEmail(email: string): Promise<User | undefined>;
 
-  findById(id: string): User | undefined;
+  findById(id: string): Promise<User | undefined>;
 
-  findAll(): User[];
+  findAll(): Promise<User[]>;
 }

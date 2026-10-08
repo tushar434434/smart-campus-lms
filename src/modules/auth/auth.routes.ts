@@ -58,14 +58,17 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (
           201: {
             description: 'User registered successfully',
             type: 'object',
+            additionalProperties: true,
           },
           400: {
             description: 'Invalid registration data',
             type: 'object',
+            additionalProperties: true,
           },
           409: {
             description: 'Email already exists',
             type: 'object',
+            additionalProperties: true,
           },
         },
       },
@@ -117,14 +120,17 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (
           200: {
             description: 'Login successful',
             type: 'object',
+            additionalProperties: true,
           },
           400: {
             description: 'Invalid login data',
             type: 'object',
+            additionalProperties: true,
           },
           401: {
             description: 'Invalid email or password',
             type: 'object',
+            additionalProperties: true,
           },
         },
       },
@@ -140,7 +146,10 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (
         );
       }
 
-      const user = await service.login(result.data.email, result.data.password);
+      const user = await service.login(
+        result.data.email,
+        result.data.password,
+      );
 
       const token = app.jwt.sign({
         sub: user.id,
@@ -177,14 +186,17 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (
           200: {
             description: 'Profile retrieved successfully',
             type: 'object',
+            additionalProperties: true,
           },
           401: {
             description: 'Authentication required',
             type: 'object',
+            additionalProperties: true,
           },
           404: {
             description: 'User not found',
             type: 'object',
+            additionalProperties: true,
           },
         },
       },
@@ -192,7 +204,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (
     async (request, reply) => {
       const user = request.user as { sub: string };
 
-      const profile = service.getUserById(user.sub);
+      const profile = await service.getUserById(user.sub);
 
       return reply.send(
         successResponse('Profile retrieved successfully', profile),

@@ -10,7 +10,7 @@ import type { User } from './auth.schema.js';
 export class InMemoryAuthRepository implements AuthRepository {
   private users: User[] = [];
 
-  create(input: CreateUserInput): User {
+  async create(input: CreateUserInput): Promise<User> {
     const user: User = {
       id: randomUUID(),
       ...input,
@@ -22,15 +22,15 @@ export class InMemoryAuthRepository implements AuthRepository {
     return user;
   }
 
-  findByEmail(email: string): User | undefined {
+  async findByEmail(email: string): Promise<User | undefined> {
     return this.users.find((user) => user.email === email);
   }
 
-  findById(id: string): User | undefined {
+  async findById(id: string): Promise<User | undefined> {
     return this.users.find((user) => user.id === id);
   }
 
-  findAll(): User[] {
+  async findAll(): Promise<User[]> {
     return this.users;
   }
 }

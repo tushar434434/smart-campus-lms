@@ -6,7 +6,7 @@ import { PrismaClient } from './generated/prisma/client.js';
 import { PrismaAssignmentRepository } from './modules/assignments/assignment.prisma.repository.js';
 import { createAssignmentService } from './modules/assignments/assignment.service.js';
 
-import { InMemoryAuthRepository } from './modules/auth/auth.repository.js';
+import { PrismaAuthRepository } from './modules/auth/auth.prisma.repository.js';
 import { createAuthService } from './modules/auth/auth.service.js';
 
 import { createCourseService } from './modules/courses/course.service.js';
@@ -42,7 +42,7 @@ export function createContainer() {
   const assignmentRepository = new PrismaAssignmentRepository(prisma);
   const enrollmentRepository = new PrismaEnrollmentRepository(prisma);
   const submissionRepository = new PrismaSubmissionRepository(prisma);
-  const authRepository = new InMemoryAuthRepository();
+  const authRepository = new PrismaAuthRepository(prisma);
 
   // Services
   const courseService = createCourseService(courseRepository);
