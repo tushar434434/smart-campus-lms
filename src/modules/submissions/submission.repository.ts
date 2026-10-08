@@ -1,16 +1,27 @@
 import { randomUUID } from 'node:crypto';
 
-import type {
-  Submission,
-  SubmissionRepository,
-} from './submission.repository.interface.js';
+import type { SubmissionRepository } from './submission.repository.interface.js';
+
+export type SubmissionStatus = 'submitted' | 'graded';
+
+export interface Submission {
+  id: string;
+  studentId: string;
+  assignmentId: string;
+  content: string;
+  status: SubmissionStatus;
+  marks?: number;
+  feedback?: string;
+  submittedAt: string;
+  updatedAt: string;
+}
 
 export class InMemorySubmissionRepository implements SubmissionRepository {
   private submissions: Submission[] = [];
 
-  create(
+  async create(
     input: Pick<Submission, 'studentId' | 'assignmentId' | 'content'>,
-  ): Submission {
+  ): Promise<Submission> {
     const now = new Date().toISOString();
 
     const submission: Submission = {
@@ -26,26 +37,26 @@ export class InMemorySubmissionRepository implements SubmissionRepository {
     return submission;
   }
 
-  findById(id: string): Submission | undefined {
+  async findById(id: string): Promise<Submission | undefined> {
     return this.submissions.find((submission) => submission.id === id);
   }
 
-  findByStudentId(studentId: string): Submission[] {
+  async findByStudentId(studentId: string): Promise<Submission[]> {
     return this.submissions.filter(
       (submission) => submission.studentId === studentId,
     );
   }
 
-  findByAssignmentId(assignmentId: string): Submission[] {
+  async findByAssignmentId(assignmentId: string): Promise<Submission[]> {
     return this.submissions.filter(
       (submission) => submission.assignmentId === assignmentId,
     );
   }
 
-  findByStudentAndAssignment(
+  async findByStudentAndAssignment(
     studentId: string,
     assignmentId: string,
-  ): Submission | undefined {
+  ): Promise<Submission | undefined> {
     return this.submissions.find(
       (submission) =>
         submission.studentId === studentId &&
@@ -53,12 +64,15 @@ export class InMemorySubmissionRepository implements SubmissionRepository {
     );
   }
 
-  updateContent(id: string, content: string): Submission | undefined {
-    const submission = this.findById(id);
+  async updateContent(
+    id: string,
+    content: string,
+  ): Promise<Submission | undefined> {
+    const submission = this.submissions.find(
+      (submission) => submission.id === id,
+    );
 
-    if (!submission) {
-      return undefined;
-    }
+    if (!submission) return undefined;
 
     submission.content = content;
     submission.status = 'submitted';
@@ -70,12 +84,16 @@ export class InMemorySubmissionRepository implements SubmissionRepository {
     return submission;
   }
 
-  grade(id: string, marks: number, feedback?: string): Submission | undefined {
-    const submission = this.findById(id);
+  async grade(
+    id: string,
+    marks: number,
+    feedback?: string,
+  ): Promise<Submission | undefined> {
+    const submission = this.submissions.find(
+      (submission) => submission.id === id,
+    );
 
-    if (!submission) {
-      return undefined;
-    }
+    if (!submission) return undefined;
 
     submission.marks = marks;
 

@@ -1,34 +1,30 @@
-export type SubmissionStatus = 'submitted' | 'graded';
+import type { Submission } from './submission.repository.js';
 
-export interface Submission {
-  id: string;
-  studentId: string;
-  assignmentId: string;
-  content: string;
-  status: SubmissionStatus;
-  marks?: number;
-  feedback?: string;
-  submittedAt: string;
-  updatedAt: string;
-}
+export type { Submission };
+
+export type SubmissionStatus = 'submitted' | 'graded';
 
 export interface SubmissionRepository {
   create(
     input: Pick<Submission, 'studentId' | 'assignmentId' | 'content'>,
-  ): Submission;
+  ): Promise<Submission>;
 
-  findById(id: string): Submission | undefined;
+  findById(id: string): Promise<Submission | undefined>;
 
-  findByStudentId(studentId: string): Submission[];
+  findByStudentId(studentId: string): Promise<Submission[]>;
 
-  findByAssignmentId(assignmentId: string): Submission[];
+  findByAssignmentId(assignmentId: string): Promise<Submission[]>;
 
   findByStudentAndAssignment(
     studentId: string,
     assignmentId: string,
-  ): Submission | undefined;
+  ): Promise<Submission | undefined>;
 
-  updateContent(id: string, content: string): Submission | undefined;
+  updateContent(id: string, content: string): Promise<Submission | undefined>;
 
-  grade(id: string, marks: number, feedback?: string): Submission | undefined;
+  grade(
+    id: string,
+    marks: number,
+    feedback?: string,
+  ): Promise<Submission | undefined>;
 }

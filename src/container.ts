@@ -1,9 +1,9 @@
 import 'dotenv/config';
 
-import { PrismaAssignmentRepository } from './modules/assignments/assignment.prisma.repository.js';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from './generated/prisma/client.js';
 
+import { PrismaAssignmentRepository } from './modules/assignments/assignment.prisma.repository.js';
 import { createAssignmentService } from './modules/assignments/assignment.service.js';
 
 import { InMemoryAuthRepository } from './modules/auth/auth.repository.js';
@@ -12,17 +12,13 @@ import { createAuthService } from './modules/auth/auth.service.js';
 import { createCourseService } from './modules/courses/course.service.js';
 import { PrismaCourseRepository } from './modules/courses/course.prisma.repository.js';
 
-import {
-  InMemoryEnrollmentRepository,
-} from './modules/enrollments/enrollment.repository.js';
+import { PrismaEnrollmentRepository } from './modules/enrollments/enrollment.prisma.repository.js';
 import { createEnrollmentService } from './modules/enrollments/enrollment.service.js';
 
 import { PrismaStudentRepository } from './modules/students/student.prisma.repository.js';
 import { createStudentService } from './modules/students/student.service.js';
 
-import {
-  InMemorySubmissionRepository,
-} from './modules/submissions/submission.repository.js';
+import { PrismaSubmissionRepository } from './modules/submissions/submission.prisma.repository.js';
 import { createSubmissionService } from './modules/submissions/submission.service.js';
 
 export function createContainer() {
@@ -44,9 +40,8 @@ export function createContainer() {
   const courseRepository = new PrismaCourseRepository(prisma);
   const studentRepository = new PrismaStudentRepository(prisma);
   const assignmentRepository = new PrismaAssignmentRepository(prisma);
-
-  const enrollmentRepository = new InMemoryEnrollmentRepository();
-  const submissionRepository = new InMemorySubmissionRepository();
+  const enrollmentRepository = new PrismaEnrollmentRepository(prisma);
+  const submissionRepository = new PrismaSubmissionRepository(prisma);
   const authRepository = new InMemoryAuthRepository();
 
   // Services
