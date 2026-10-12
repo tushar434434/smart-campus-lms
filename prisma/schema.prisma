@@ -18,6 +18,30 @@ enum SubmissionStatus {
   graded
 }
 
+enum QuizStatus {
+  draft
+  published
+  closed
+}
+
+enum QuizAttemptStatus {
+  in_progress
+  submitted
+  auto_submitted
+  flagged
+}
+
+enum ProctoringEventType {
+  tab_switch
+  fullscreen_exit
+  fullscreen_enter
+  visibility_hidden
+  visibility_visible
+  quiz_started
+  quiz_submitted
+  time_expired
+}
+
 model User {
   id           String   @id @default(uuid()) @db.Uuid
   name         String
@@ -25,30 +49,36 @@ model User {
   passwordHash String
   role         UserRole
   createdAt    DateTime @default(now())
+
+  student Student?
 }
 
 model Student {
-  id               String       @id @default(uuid()) @db.Uuid
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String?  @unique @db.Uuid
   name             String
-  email            String       @unique
-  enrollmentNumber String       @unique
+  email            String   @unique
+  enrollmentNumber String   @unique
   department       String
   semester         Int
-  createdAt        DateTime     @default(now())
+  createdAt        DateTime @default(now())
 
-  enrollments      Enrollment[]
-  submissions      Submission[]
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  enrollments  Enrollment[]
+  submissions  Submission[]
+  quizAttempts QuizAttempt[]
 }
 
 model Course {
-  id          String       @id @default(uuid()) @db.Uuid
-  title       String
-  code        String       @unique
-  credits     Int
-  createdAt   DateTime     @default(now())
+  id        String   @id @default(uuid()) @db.Uuid
+  title     String
+  code      String   @unique
+  credits   Int
+  createdAt DateTime @default(now())
 
   enrollments Enrollment[]
   assignments Assignment[]
+  quizzes     Quiz[]
 }
 
 model Enrollment {
@@ -57,20 +87,20 @@ model Enrollment {
   courseId   String   @db.Uuid
   enrolledAt DateTime @default(now())
 
-  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course  Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, courseId])
 }
 
 model Assignment {
-  id          String       @id @default(uuid()) @db.Uuid
-  courseId    String       @db.Uuid
+  id          String   @id @default(uuid()) @db.Uuid
+  courseId    String   @db.Uuid
   title       String
   description String
   dueAt       DateTime
   maxMarks    Float
-  createdAt   DateTime     @default(now())
+  createdAt   DateTime @default(now())
 
   course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
   submissions Submission[]
@@ -87,8 +117,99 @@ model Submission {
   submittedAt  DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 
-  student      Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  assignment   Assignment      @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student    Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, assignmentId])
+}
+
+model Quiz {
+  id              String     @id @default(uuid()) @db.Uuid
+  courseId        String     @db.Uuid
+  title           String
+  description     String
+  durationMinutes Int
+  maxMarks        Float
+  maxAttempts     Int        @default(1)
+  status          QuizStatus @default(draft)
+  startsAt        DateTime?
+  endsAt          DateTime?
+
+  // Result visibility is controlled by the teacher.
+  resultsReleasedAt  DateTime?
+  showMarks          Boolean   @default(false)
+  showCorrectAnswers Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  course    Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  questions QuizQuestion[]
+  attempts  QuizAttempt[]
+
+  @@index([courseId])
+}
+
+model QuizQuestion {
+  id            String @id @default(uuid()) @db.Uuid
+  quizId        String @db.Uuid
+  questionText  String
+  optionA       String
+  optionB       String
+  optionC       String
+  optionD       String
+  correctOption String
+  marks         Float  @default(1)
+
+  quiz    Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  answers QuizAnswer[]
+
+  @@index([quizId])
+}
+
+model QuizAttempt {
+  id                  String            @id @default(uuid()) @db.Uuid
+  quizId              String            @db.Uuid
+  studentId           String            @db.Uuid
+  startedAt           DateTime          @default(now())
+  submittedAt         DateTime?
+  status              QuizAttemptStatus @default(in_progress)
+  score               Float?
+  tabSwitchCount      Int               @default(0)
+  fullscreenExitCount Int               @default(0)
+  suspiciousActivity  Boolean           @default(false)
+
+  quiz             Quiz              @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  student          Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  answers          QuizAnswer[]
+  proctoringEvents ProctoringEvent[]
+
+  @@index([quizId])
+  @@index([studentId])
+}
+
+model QuizAnswer {
+  id             String   @id @default(uuid()) @db.Uuid
+  attemptId      String   @db.Uuid
+  questionId     String   @db.Uuid
+  selectedOption String
+  isCorrect      Boolean?
+  marksAwarded   Float?
+
+  attempt  QuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
+}
+
+model ProctoringEvent {
+  id         String              @id @default(uuid()) @db.Uuid
+  attemptId  String              @db.Uuid
+  type       ProctoringEventType
+  occurredAt DateTime            @default(now())
+  metadata   String?
+
+  attempt QuizAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId])
 }
