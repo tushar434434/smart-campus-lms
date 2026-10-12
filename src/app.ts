@@ -13,18 +13,20 @@ import { enrollmentRoutes } from './modules/enrollments/enrollment.routes.js';
 import { assignmentRoutes } from './modules/assignments/assignment.routes.js';
 import { submissionRoutes } from './modules/submissions/submission.routes.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
+import { quizRoutes } from './modules/quizzes/quiz.routes.js';
 
-export function buildApp(
-  container: Pick<
-    ReturnType<typeof createContainer>,
-    | 'courseService'
-    | 'studentService'
-    | 'enrollmentService'
-    | 'assignmentService'
-    | 'submissionService'
-    | 'authService'
-  > = createContainer(),
-) {
+type AppContainer = Pick<
+  ReturnType<typeof createContainer>,
+  | 'courseService'
+  | 'studentService'
+  | 'enrollmentService'
+  | 'assignmentService'
+  | 'submissionService'
+  | 'authService'
+  | 'quizService'
+>;
+
+export function buildApp(container: AppContainer) {
   const app = Fastify({
     logger: true,
   });
@@ -70,6 +72,10 @@ export function buildApp(
           name: 'Submissions',
           description: 'Assignment submission endpoints',
         },
+        {
+          name: 'Quizzes',
+          description: 'Quiz management endpoints',
+        },
       ],
       components: {
         securitySchemes: {
@@ -108,6 +114,7 @@ export function buildApp(
     assignmentService,
     submissionService,
     authService,
+    quizService,
   } = container;
 
   // Health check
@@ -119,16 +126,14 @@ export function buildApp(
         summary: 'Check API health',
       },
     },
-    async () => {
-      return {
-        success: true,
-        message: 'Service is healthy',
-        data: {
-          service: 'smart-campus-lms',
-          status: 'ok',
-        },
-      };
-    },
+    async () => ({
+      success: true,
+      message: 'Service is healthy',
+      data: {
+        service: 'smart-campus-lms',
+        status: 'ok',
+      },
+    }),
   );
 
   // Course routes
@@ -154,6 +159,11 @@ export function buildApp(
   // Submission routes
   app.register(submissionRoutes, {
     service: submissionService,
+  });
+
+  // Quiz routes
+  app.register(async (quizApp) => {
+    await quizRoutes(quizApp, quizService);
   });
 
   // Authentication routes
