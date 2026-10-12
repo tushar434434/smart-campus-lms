@@ -112,11 +112,9 @@ export class PrismaCourseRepository implements CourseRepository {
           ...(input.title !== undefined && {
             title: input.title,
           }),
-
           ...(input.code !== undefined && {
             code: input.code,
           }),
-
           ...(input.credits !== undefined && {
             credits: input.credits,
           }),
@@ -131,8 +129,16 @@ export class PrismaCourseRepository implements CourseRepository {
         createdAt: course.createdAt.toISOString(),
       };
     } catch (error) {
-      console.error('PRISMA COURSE UPDATE ERROR:', error);
-      return undefined;
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === 'P2025'
+      ) {
+        return undefined;
+      }
+
+      throw error;
     }
   }
 
@@ -144,8 +150,16 @@ export class PrismaCourseRepository implements CourseRepository {
 
       return true;
     } catch (error) {
-      console.error('PRISMA COURSE DELETE ERROR:', error);
-      return false;
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === 'P2025'
+      ) {
+        return false;
+      }
+
+      throw error;
     }
   }
 }
