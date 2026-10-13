@@ -3,6 +3,7 @@ import type { StudentRepository } from './student.repository.interface.js';
 
 export interface Student extends CreateStudentInput {
   id: string;
+  userId: string | null;
   createdAt: string;
 }
 
@@ -13,6 +14,7 @@ export class InMemoryStudentRepository implements StudentRepository {
     const student: Student = {
       id: crypto.randomUUID(),
       ...input,
+      userId: null,
       createdAt: new Date().toISOString(),
     };
 
@@ -38,12 +40,34 @@ export class InMemoryStudentRepository implements StudentRepository {
     );
   }
 
+  async findByUserId(userId: string): Promise<Student | undefined> {
+    return this.students.find((student) => student.userId === userId);
+  }
+
+  async linkUser(
+    studentId: string,
+    userId: string,
+  ): Promise<Student | undefined> {
+    const student = this.students.find((item) => item.id === studentId);
+
+    if (!student) return undefined;
+
+    const alreadyLinked = this.students.some(
+      (item) => item.userId === userId && item.id !== studentId,
+    );
+
+    if (alreadyLinked) {
+      throw new Error('User is already linked to another student');
+    }
+
+    student.userId = userId;
+    return student;
+  }
+
   async delete(id: string): Promise<boolean> {
     const index = this.students.findIndex((student) => student.id === id);
 
-    if (index === -1) {
-      return false;
-    }
+    if (index === -1) return false;
 
     this.students.splice(index, 1);
     return true;
@@ -53,21 +77,16 @@ export class InMemoryStudentRepository implements StudentRepository {
     id: string,
     input: Partial<CreateStudentInput>,
   ): Promise<Student | undefined> {
-    const studentIndex = this.students.findIndex(
-      (student) => student.id === id,
-    );
+    const index = this.students.findIndex((student) => student.id === id);
 
-    if (studentIndex === -1) {
-      return undefined;
-    }
+    if (index === -1) return undefined;
 
     const updatedStudent: Student = {
-      ...this.students[studentIndex]!,
+      ...this.students[index]!,
       ...input,
     };
 
-    this.students[studentIndex] = updatedStudent;
-
+    this.students[index] = updatedStudent;
     return updatedStudent;
   }
 
@@ -79,24 +98,22 @@ export class InMemoryStudentRepository implements StudentRepository {
     let filteredStudents = [...this.students];
 
     if (input.search) {
-      const searchTerm = input.search.toLowerCase();
+      const term = input.search.toLowerCase();
 
       filteredStudents = filteredStudents.filter(
         (student) =>
-          student.name.toLowerCase().includes(searchTerm) ||
-          student.email.toLowerCase().includes(searchTerm) ||
-          student.enrollmentNumber.toLowerCase().includes(searchTerm),
+          student.name.toLowerCase().includes(term) ||
+          student.email.toLowerCase().includes(term) ||
+          student.enrollmentNumber.toLowerCase().includes(term),
       );
     }
 
     const total = filteredStudents.length;
     const startIndex = (input.page - 1) * input.limit;
 
-    const students = filteredStudents.slice(
-      startIndex,
-      startIndex + input.limit,
-    );
-
-    return { students, total };
+    return {
+      students: filteredStudents.slice(startIndex, startIndex + input.limit),
+      total,
+    };
   }
 }

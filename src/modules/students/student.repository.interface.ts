@@ -8,28 +8,28 @@ export interface StudentRepository {
 
   findByEmail(email: string): Promise<Student | undefined>;
 
-  delete(id: string): Promise<boolean>;
-
   findByEnrollmentNumber(
     enrollmentNumber: string,
   ): Promise<Student | undefined>;
 
+  findByUserId(userId: string): Promise<Student | undefined>;
+
+  linkUser(studentId: string, userId: string): Promise<Student | undefined>;
+
+  delete(id: string): Promise<boolean>;
+
   update(
     id: string,
     input: {
-      name?: string | undefined;
-      email?: string | undefined;
-      enrollmentNumber?: string | undefined;
-      department?: string | undefined;
-      semester?: number | undefined;
+      name?: string;
+      email?: string;
+      enrollmentNumber?: string;
+      department?: string;
+      semester?: number;
     },
   ): Promise<Student | undefined>;
 
-  findAll(input: {
-    page: number;
-    limit: number;
-    search?: string | undefined;
-  }): Promise<{
+  findAll(input: { page: number; limit: number; search?: string }): Promise<{
     students: Student[];
     total: number;
   }>;

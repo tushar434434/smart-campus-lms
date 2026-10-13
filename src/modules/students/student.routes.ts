@@ -1,10 +1,13 @@
 import type { FastifyInstance } from 'fastify';
 
 import { AppError } from '../../errors/app-error.js';
+import { authenticate } from '../../middleware/authenticate.js';
+import { authorize } from '../../middleware/authorize.js';
 import { successResponse } from '../../utils/response.js';
 
 import {
   createStudentSchema,
+  linkStudentUserSchema,
   listStudentsSchema,
   updateStudentSchema,
 } from './student.schema.js';
@@ -244,6 +247,87 @@ export async function studentRoutes(
 
       return reply.send(
         successResponse('Student updated successfully', student),
+      );
+    },
+  );
+
+  // Link a student record to a student user account
+  app.patch<{ Params: { id: string } }>(
+    '/students/:id/link-user',
+    {
+      preHandler: [authenticate, authorize('faculty', 'admin')],
+      schema: {
+        tags: ['Students'],
+        summary: 'Link student to user account',
+        description:
+          'Links an existing student record to a student user account.',
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+          },
+        },
+        body: {
+          type: 'object',
+          required: ['userId'],
+          properties: {
+            userId: { type: 'string', format: 'uuid' },
+          },
+        },
+        response: {
+          200: {
+            description: 'Student linked successfully',
+            type: 'object',
+            additionalProperties: true,
+          },
+          400: {
+            description: 'Invalid request or user role',
+            type: 'object',
+            additionalProperties: true,
+          },
+          401: {
+            description: 'Authentication required',
+            type: 'object',
+            additionalProperties: true,
+          },
+          403: {
+            description: 'Insufficient permissions',
+            type: 'object',
+            additionalProperties: true,
+          },
+          404: {
+            description: 'Student or user not found',
+            type: 'object',
+            additionalProperties: true,
+          },
+          409: {
+            description: 'Student or user already linked',
+            type: 'object',
+            additionalProperties: true,
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const result = linkStudentUserSchema.safeParse(request.body);
+
+      if (!result.success) {
+        throw new AppError(
+          result.error.issues.map((issue) => issue.message).join(', '),
+          400,
+          'VALIDATION_ERROR',
+        );
+      }
+
+      const student = await service.linkStudentUser(
+        request.params.id,
+        result.data.userId,
+      );
+
+      return reply.send(
+        successResponse('Student linked to user account successfully', student),
       );
     },
   );
