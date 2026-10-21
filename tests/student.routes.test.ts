@@ -490,4 +490,25 @@ describe('Student API', () => {
     expect(response.statusCode).toBe(400);
     expect(response.json().error.code).toBe('VALIDATION_ERROR');
   });
+
+  it('should reject an invalid email when updating a student', async () => {
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/students/any-id',
+      payload: { email: 'invalid-email' },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('should reject a zero pagination limit', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/students?limit=0',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
+  });
 });
