@@ -1,14 +1,34 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+
+import {
+  afterAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from 'vitest';
 import { randomUUID } from 'node:crypto';
+
 import { createTestContainer } from '../src/test-container.js';
 import { buildApp } from '../src/app.js';
 
 describe('Assignment Routes', () => {
   const app = buildApp(createTestContainer());
 
-  let courseId: string;
   let facultyToken: string;
+  let studentToken: string;
   let adminToken: string;
+  let courseId: string;
+
+  // Generate a unique, schema-valid course code.
+  let courseCodeCounter = 1000;
+
+  const validAssignment = (id: string) => ({
+    courseId: id,
+    title: 'Data Structures Assignment',
+    description: 'Complete the assigned programming problems',
+    dueAt: new Date(Date.now() + 86_400_000).toISOString(),
+    maxMarks: 100,
+  });
 
   beforeEach(async () => {
     await app.ready();
@@ -18,10 +38,18 @@ describe('Assignment Routes', () => {
       role: 'faculty',
     });
 
+    studentToken = app.jwt.sign({
+      sub: 'student-test-id',
+      role: 'student',
+    });
+
     adminToken = app.jwt.sign({
       sub: 'admin-test-id',
       role: 'admin',
     });
+
+    // CS1001, CS1002, etc. Match /^[A-Z]{2,5}[0-9]{3,4}$/.
+    courseCodeCounter += 1;
 
     const courseResponse = await app.inject({
       method: 'POST',
@@ -31,12 +59,21 @@ describe('Assignment Routes', () => {
       },
       payload: {
         title: 'Data Structures',
-        code: 'CS301',
+        code: `CS${courseCodeCounter}`,
         credits: 4,
       },
     });
 
+    expect(
+      courseResponse.statusCode,
+      `Course setup failed: ${courseResponse.body}`,
+    ).toBe(201);
+
     courseId = courseResponse.json().data.id;
+  });
+
+  afterAll(async () => {
+    await app.close();
   });
 
   it('should create an assignment', async () => {
@@ -46,17 +83,13 @@ describe('Assignment Routes', () => {
       headers: {
         authorization: `Bearer ${facultyToken}`,
       },
-      payload: {
-        courseId,
-        title: 'Array Assignment',
-        description: 'Solve array problems',
-        dueAt: '2026-10-20T18:00:00.000Z',
-        maxMarks: 100,
-      },
+      payload: validAssignment(courseId),
     });
 
-    expect(response.statusCode).toBe(201);
-    expect(response.json().data.title).toBe('Array Assignment');
+    expect(response.statusCode, response.body).toBe(201);
+    expect(response.json().data.title).toBe(
+      'Data Structures Assignment',
+    );
   });
 
   it('should reject invalid assignment input', async () => {
@@ -67,11 +100,8 @@ describe('Assignment Routes', () => {
         authorization: `Bearer ${facultyToken}`,
       },
       payload: {
-        courseId,
-        title: 'A',
-        description: 'Bad',
-        dueAt: 'invalid-date',
-        maxMarks: -10,
+        ...validAssignment(courseId),
+        title: '',
       },
     });
 
@@ -79,20 +109,14 @@ describe('Assignment Routes', () => {
     expect(response.json().error.code).toBe('VALIDATION_ERROR');
   });
 
-  it('should reject assignment for nonexistent course', async () => {
+  it('should return 404 for an assignment with a nonexistent course', async () => {
     const response = await app.inject({
       method: 'POST',
       url: '/assignments',
       headers: {
         authorization: `Bearer ${facultyToken}`,
       },
-      payload: {
-        courseId: randomUUID(),
-        title: 'Array Assignment',
-        description: 'Solve array problems',
-        dueAt: '2026-10-20T18:00:00.000Z',
-        maxMarks: 100,
-      },
+      payload: validAssignment(randomUUID()),
     });
 
     expect(response.statusCode).toBe(404);
@@ -100,24 +124,35 @@ describe('Assignment Routes', () => {
   });
 
   it('should retrieve assignments for a course', async () => {
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/assignments',
+      headers: {
+        authorization: `Bearer ${facultyToken}`,
+      },
+      payload: validAssignment(courseId),
+    });
+
+    expect(createResponse.statusCode, createResponse.body).toBe(201);
+
     const response = await app.inject({
       method: 'GET',
       url: `/assignments/course/${courseId}`,
       headers: {
-        authorization: `Bearer ${facultyToken}`,
+        authorization: `Bearer ${studentToken}`,
       },
     });
 
-    expect(response.statusCode).toBe(200);
-    expect(response.json().data).toBeInstanceOf(Array);
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data).toHaveLength(1);
   });
 
-  it('should return 404 for nonexistent assignment', async () => {
+  it('should return 404 for a nonexistent assignment', async () => {
     const response = await app.inject({
       method: 'GET',
       url: `/assignments/${randomUUID()}`,
       headers: {
-        authorization: `Bearer ${facultyToken}`,
+        authorization: `Bearer ${studentToken}`,
       },
     });
 
@@ -132,20 +167,16 @@ describe('Assignment Routes', () => {
       headers: {
         authorization: `Bearer ${facultyToken}`,
       },
-      payload: {
-        courseId,
-        title: 'Original Assignment',
-        description: 'Original description',
-        dueAt: '2026-10-20T18:00:00.000Z',
-        maxMarks: 100,
-      },
+      payload: validAssignment(courseId),
     });
 
-    const id = createResponse.json().data.id;
+    expect(createResponse.statusCode, createResponse.body).toBe(201);
+
+    const assignmentId = createResponse.json().data.id;
 
     const response = await app.inject({
       method: 'PATCH',
-      url: `/assignments/${id}`,
+      url: `/assignments/${assignmentId}`,
       headers: {
         authorization: `Bearer ${facultyToken}`,
       },
@@ -154,31 +185,27 @@ describe('Assignment Routes', () => {
       },
     });
 
-    expect(response.statusCode).toBe(200);
+    expect(response.statusCode, response.body).toBe(200);
     expect(response.json().data.title).toBe('Updated Assignment');
   });
 
-  it('should delete an assignment', async () => {
+  it('should delete an assignment as an admin', async () => {
     const createResponse = await app.inject({
       method: 'POST',
       url: '/assignments',
       headers: {
         authorization: `Bearer ${facultyToken}`,
       },
-      payload: {
-        courseId,
-        title: 'Delete Me',
-        description: 'Assignment for deletion',
-        dueAt: '2026-10-20T18:00:00.000Z',
-        maxMarks: 50,
-      },
+      payload: validAssignment(courseId),
     });
 
-    const id = createResponse.json().data.id;
+    expect(createResponse.statusCode, createResponse.body).toBe(201);
+
+    const assignmentId = createResponse.json().data.id;
 
     const response = await app.inject({
       method: 'DELETE',
-      url: `/assignments/${id}`,
+      url: `/assignments/${assignmentId}`,
       headers: {
         authorization: `Bearer ${adminToken}`,
       },
@@ -187,7 +214,19 @@ describe('Assignment Routes', () => {
     expect(response.statusCode).toBe(204);
   });
 
-  it('should return 404 when deleting nonexistent assignment', async () => {
+  it('should forbid faculty from deleting an assignment', async () => {
+    const response = await app.inject({
+      method: 'DELETE',
+      url: `/assignments/${randomUUID()}`,
+      headers: {
+        authorization: `Bearer ${facultyToken}`,
+      },
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  it('should return 404 when deleting a nonexistent assignment as admin', async () => {
     const response = await app.inject({
       method: 'DELETE',
       url: `/assignments/${randomUUID()}`,

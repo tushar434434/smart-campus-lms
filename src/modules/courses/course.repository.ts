@@ -1,3 +1,4 @@
+
 import type {
   CreateCourseInput,
   UpdateCourseInput,
@@ -15,6 +16,19 @@ export class InMemoryCourseRepository implements CourseRepository {
   private courses: Course[] = [];
 
   async create(input: CreateCourseInput): Promise<Course> {
+    const existingCourse = this.courses.find(
+      (course) => course.code === input.code,
+    );
+
+    if (existingCourse) {
+      const error = new Error('Course code already exists') as Error & {
+        code: string;
+      };
+
+      error.code = 'COURSE_CODE_EXISTS';
+      throw error;
+    }
+
     const course: Course = {
       id: crypto.randomUUID(),
       ...input,
@@ -26,10 +40,9 @@ export class InMemoryCourseRepository implements CourseRepository {
     return course;
   }
 
-  async findAll(input: ListCoursesInput): Promise<{
-    courses: Course[];
-    total: number;
-  }> {
+  async findAll(
+    input: ListCoursesInput,
+  ): Promise<{ courses: Course[]; total: number }> {
     const { page, limit, search, credits } = input;
 
     let filteredCourses = this.courses;
@@ -51,7 +64,6 @@ export class InMemoryCourseRepository implements CourseRepository {
     }
 
     const total = filteredCourses.length;
-
     const startIndex = (page - 1) * limit;
 
     const courses = filteredCourses.slice(startIndex, startIndex + limit);
@@ -74,6 +86,21 @@ export class InMemoryCourseRepository implements CourseRepository {
 
     if (!course) {
       return undefined;
+    }
+
+    if (
+      input.code !== undefined &&
+      this.courses.some(
+        (existingCourse) =>
+          existingCourse.id !== id && existingCourse.code === input.code,
+      )
+    ) {
+      const error = new Error('Course code already exists') as Error & {
+        code: string;
+      };
+
+      error.code = 'COURSE_CODE_EXISTS';
+      throw error;
     }
 
     Object.assign(course, input);

@@ -1,17 +1,41 @@
-import { AppError } from '../../errors/app-error.js';
 
+import { AppError } from '../../errors/app-error.js';
 import type {
   CreateCourseInput,
   UpdateCourseInput,
   ListCoursesInput,
 } from './course.schema.js';
-
 import type { CourseRepository } from './course.repository.interface.js';
+
+function isDuplicateCourseCodeError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === 'COURSE_CODE_EXISTS'
+  );
+}
+
+function handleCourseError(error: unknown): never {
+  if (isDuplicateCourseCodeError(error)) {
+    throw new AppError(
+      'Course code already exists',
+      409,
+      'COURSE_CODE_EXISTS',
+    );
+  }
+
+  throw error;
+}
 
 export function createCourseService(repository: CourseRepository) {
   return {
     async create(input: CreateCourseInput) {
-      return repository.create(input);
+      try {
+        return await repository.create(input);
+      } catch (error) {
+        handleCourseError(error);
+      }
     },
 
     async list(input: ListCoursesInput) {
@@ -39,13 +63,21 @@ export function createCourseService(repository: CourseRepository) {
     },
 
     async update(id: string, input: UpdateCourseInput) {
-      const course = await repository.update(id, input);
+      try {
+        const course = await repository.update(id, input);
 
-      if (!course) {
-        throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
+        if (!course) {
+          throw new AppError(
+            'Course not found',
+            404,
+            'COURSE_NOT_FOUND',
+          );
+        }
+
+        return course;
+      } catch (error) {
+        handleCourseError(error);
       }
-
-      return course;
     },
 
     async delete(id: string) {
