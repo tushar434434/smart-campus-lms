@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import jwt from '@fastify/jwt';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
+import rateLimit from '@fastify/rate-limit';
 
 import { errorHandler } from './errors/error-handler.js';
 import { createContainer } from './container.js';
@@ -101,6 +102,22 @@ export function buildApp(container: AppContainer) {
     sign: {
       expiresIn: '1h',
     },
+  });
+
+  // Global rate limiting
+  app.register(rateLimit, {
+    max: 100,
+    timeWindow: '1 minute',
+    global: process.env.NODE_ENV !== 'test',
+    errorResponseBuilder: (_request, context) => ({
+      success: false,
+      error: {
+        code: 'RATE_LIMIT_EXCEEDED',
+        message: `Too many requests. Try again in ${Math.ceil(
+          context.ttl / 1000,
+        )} seconds.`,
+      },
+    }),
   });
 
   // Global error handler
