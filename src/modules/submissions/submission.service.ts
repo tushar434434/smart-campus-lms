@@ -1,7 +1,8 @@
 import { AppError } from '../../errors/app-error.js';
 
-import type { StudentRepository } from '../students/student.repository.interface.js';
 import type { AssignmentRepository } from '../assignments/assignment.repository.interface.js';
+import type { UserRole } from '../auth/auth.schema.js';
+import type { StudentRepository } from '../students/student.repository.interface.js';
 
 import type { SubmissionRepository } from './submission.repository.interface.js';
 
@@ -10,8 +11,6 @@ import type {
   GradeSubmissionInput,
   UpdateSubmissionInput,
 } from './submission.schema.js';
-
-import type { UserRole } from '../auth/auth.schema.js';
 
 type AuthenticatedUser = {
   sub: string;
@@ -47,11 +46,7 @@ export function createSubmissionService(
       );
 
       if (!assignment) {
-        throw new AppError(
-          'Assignment not found',
-          404,
-          'ASSIGNMENT_NOT_FOUND',
-        );
+        throw new AppError('Assignment not found', 404, 'ASSIGNMENT_NOT_FOUND');
       }
 
       const existing = await repository.findByStudentAndAssignment(
@@ -74,11 +69,7 @@ export function createSubmissionService(
       const submission = await repository.findById(id);
 
       if (!submission) {
-        throw new AppError(
-          'Submission not found',
-          404,
-          'SUBMISSION_NOT_FOUND',
-        );
+        throw new AppError('Submission not found', 404, 'SUBMISSION_NOT_FOUND');
       }
 
       if (user.role === 'student' && submission.studentId !== user.sub) {
@@ -92,10 +83,7 @@ export function createSubmissionService(
       return submission;
     },
 
-    async getStudentSubmissions(
-      studentId: string,
-      user: AuthenticatedUser,
-    ) {
+    async getStudentSubmissions(studentId: string, user: AuthenticatedUser) {
       if (user.role === 'student' && user.sub !== studentId) {
         throw new AppError(
           'You do not have permission to view these submissions',
@@ -115,16 +103,20 @@ export function createSubmissionService(
 
     async getAssignmentSubmissions(
       assignmentId: string,
-      _user: AuthenticatedUser,
+      user: AuthenticatedUser,
     ) {
+      if (user.role === 'student') {
+        throw new AppError(
+          'You do not have permission to view these submissions',
+          403,
+          'FORBIDDEN',
+        );
+      }
+
       const assignment = await assignmentRepository.findById(assignmentId);
 
       if (!assignment) {
-        throw new AppError(
-          'Assignment not found',
-          404,
-          'ASSIGNMENT_NOT_FOUND',
-        );
+        throw new AppError('Assignment not found', 404, 'ASSIGNMENT_NOT_FOUND');
       }
 
       return repository.findByAssignmentId(assignmentId);
@@ -138,11 +130,7 @@ export function createSubmissionService(
       const submission = await repository.findById(id);
 
       if (!submission) {
-        throw new AppError(
-          'Submission not found',
-          404,
-          'SUBMISSION_NOT_FOUND',
-        );
+        throw new AppError('Submission not found', 404, 'SUBMISSION_NOT_FOUND');
       }
 
       if (user.role === 'student' && submission.studentId !== user.sub) {
@@ -159,11 +147,7 @@ export function createSubmissionService(
       );
 
       if (!updatedSubmission) {
-        throw new AppError(
-          'Submission not found',
-          404,
-          'SUBMISSION_NOT_FOUND',
-        );
+        throw new AppError('Submission not found', 404, 'SUBMISSION_NOT_FOUND');
       }
 
       return updatedSubmission;
@@ -172,16 +156,20 @@ export function createSubmissionService(
     async gradeSubmission(
       id: string,
       input: GradeSubmissionInput,
-      _user: AuthenticatedUser,
+      user: AuthenticatedUser,
     ) {
+      if (user.role === 'student') {
+        throw new AppError(
+          'You do not have permission to grade submissions',
+          403,
+          'FORBIDDEN',
+        );
+      }
+
       const submission = await repository.findById(id);
 
       if (!submission) {
-        throw new AppError(
-          'Submission not found',
-          404,
-          'SUBMISSION_NOT_FOUND',
-        );
+        throw new AppError('Submission not found', 404, 'SUBMISSION_NOT_FOUND');
       }
 
       const assignment = await assignmentRepository.findById(
@@ -189,11 +177,7 @@ export function createSubmissionService(
       );
 
       if (!assignment) {
-        throw new AppError(
-          'Assignment not found',
-          404,
-          'ASSIGNMENT_NOT_FOUND',
-        );
+        throw new AppError('Assignment not found', 404, 'ASSIGNMENT_NOT_FOUND');
       }
 
       if (input.marks > assignment.maxMarks) {

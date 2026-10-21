@@ -52,11 +52,7 @@ export function createEnrollmentService(
       const deleted = await repository.delete(id);
 
       if (!deleted) {
-        throw new AppError(
-          'Enrollment not found',
-          404,
-          'ENROLLMENT_NOT_FOUND',
-        );
+        throw new AppError('Enrollment not found', 404, 'ENROLLMENT_NOT_FOUND');
       }
     },
   };

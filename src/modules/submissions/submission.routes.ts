@@ -202,10 +202,7 @@ export async function submissionRoutes(
         role: 'student' | 'faculty' | 'admin';
       };
 
-      const submissions = await service.getStudentSubmissions(
-        studentId,
-        user,
-      );
+      const submissions = await service.getStudentSubmissions(studentId, user);
 
       return reply.send(
         successResponse(
@@ -353,11 +350,7 @@ export async function submissionRoutes(
 
       const user = request.user as { sub: string; role: 'student' };
 
-      const submission = await service.updateSubmission(
-        id,
-        parsed.data,
-        user,
-      );
+      const submission = await service.updateSubmission(id, parsed.data, user);
 
       return reply.send(
         successResponse('Submission updated successfully', submission),
@@ -446,11 +439,7 @@ export async function submissionRoutes(
         role: 'student' | 'faculty' | 'admin';
       };
 
-      const submission = await service.gradeSubmission(
-        id,
-        parsed.data,
-        user,
-      );
+      const submission = await service.gradeSubmission(id, parsed.data, user);
 
       return reply.send(
         successResponse('Submission graded successfully', submission),

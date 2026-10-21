@@ -7,7 +7,6 @@ describe('Assignment Routes', () => {
   const app = buildApp(createTestContainer());
 
   let courseId: string;
-  let assignmentId: string;
   let facultyToken: string;
   let adminToken: string;
 
@@ -58,8 +57,6 @@ describe('Assignment Routes', () => {
 
     expect(response.statusCode).toBe(201);
     expect(response.json().data.title).toBe('Array Assignment');
-
-    assignmentId = response.json().data.id;
   });
 
   it('should reject invalid assignment input', async () => {

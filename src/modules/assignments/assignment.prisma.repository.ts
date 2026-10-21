@@ -1,4 +1,6 @@
+import { Prisma } from '../../generated/prisma/client.js';
 import { PrismaClient } from '../../generated/prisma/client.js';
+
 import type { Assignment } from './assignment.repository.js';
 import type { AssignmentRepository } from './assignment.repository.interface.js';
 
@@ -23,31 +25,19 @@ export class PrismaAssignmentRepository implements AssignmentRepository {
 
   async findAllByCourseId(courseId: string): Promise<Assignment[]> {
     const assignments = await this.prisma.assignment.findMany({
-      where: {
-        courseId,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      where: { courseId },
+      orderBy: { createdAt: 'desc' },
     });
 
-    return assignments.map((assignment) =>
-      this.toAssignment(assignment),
-    );
+    return assignments.map((assignment) => this.toAssignment(assignment));
   }
 
   async findById(id: string): Promise<Assignment | undefined> {
     const assignment = await this.prisma.assignment.findUnique({
-      where: {
-        id,
-      },
+      where: { id },
     });
 
-    if (!assignment) {
-      return undefined;
-    }
-
-    return this.toAssignment(assignment);
+    return assignment ? this.toAssignment(assignment) : undefined;
   }
 
   async update(
@@ -56,13 +46,9 @@ export class PrismaAssignmentRepository implements AssignmentRepository {
   ): Promise<Assignment | undefined> {
     try {
       const assignment = await this.prisma.assignment.update({
-        where: {
-          id,
-        },
+        where: { id },
         data: {
-          ...(input.title !== undefined && {
-            title: input.title,
-          }),
+          ...(input.title !== undefined && { title: input.title }),
           ...(input.description !== undefined && {
             description: input.description,
           }),
@@ -76,22 +62,34 @@ export class PrismaAssignmentRepository implements AssignmentRepository {
       });
 
       return this.toAssignment(assignment);
-    } catch {
-      return undefined;
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        return undefined;
+      }
+
+      throw error;
     }
   }
 
   async delete(id: string): Promise<boolean> {
     try {
       await this.prisma.assignment.delete({
-        where: {
-          id,
-        },
+        where: { id },
       });
 
       return true;
-    } catch {
-      return false;
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        return false;
+      }
+
+      throw error;
     }
   }
 

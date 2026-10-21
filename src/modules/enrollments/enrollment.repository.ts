@@ -41,8 +41,7 @@ export class InMemoryEnrollmentRepository implements EnrollmentRepository {
   ): Promise<Enrollment | undefined> {
     return this.enrollments.find(
       (enrollment) =>
-        enrollment.studentId === studentId &&
-        enrollment.courseId === courseId,
+        enrollment.studentId === studentId && enrollment.courseId === courseId,
     );
   }
 

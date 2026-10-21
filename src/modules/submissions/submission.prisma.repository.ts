@@ -35,9 +35,7 @@ export class PrismaSubmissionRepository implements SubmissionRepository {
       orderBy: { submittedAt: 'desc' },
     });
 
-    return submissions.map((submission) =>
-      this.toSubmission(submission),
-    );
+    return submissions.map((submission) => this.toSubmission(submission));
   }
 
   async findByAssignmentId(assignmentId: string): Promise<Submission[]> {
@@ -46,9 +44,7 @@ export class PrismaSubmissionRepository implements SubmissionRepository {
       orderBy: { submittedAt: 'desc' },
     });
 
-    return submissions.map((submission) =>
-      this.toSubmission(submission),
-    );
+    return submissions.map((submission) => this.toSubmission(submission));
   }
 
   async findByStudentAndAssignment(

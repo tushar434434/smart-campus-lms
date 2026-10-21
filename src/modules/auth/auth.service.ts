@@ -1,7 +1,6 @@
 import bcrypt from 'bcrypt';
 
 import { AppError } from '../../errors/app-error.js';
-
 import type { AuthRepository } from './auth.repository.interface.js';
 import type { RegisterInput, User } from './auth.schema.js';
 
@@ -29,7 +28,8 @@ export function createAuthService(repository: AuthRepository) {
         role: input.role,
       });
 
-      const { passwordHash: _, ...safeUser } = user;
+      const { passwordHash: _passwordHash, ...safeUser } = user;
+      void _passwordHash;
 
       return safeUser;
     },
@@ -45,10 +45,7 @@ export function createAuthService(repository: AuthRepository) {
         );
       }
 
-      const isPasswordValid = await bcrypt.compare(
-        password,
-        user.passwordHash,
-      );
+      const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
       if (!isPasswordValid) {
         throw new AppError(
@@ -58,7 +55,8 @@ export function createAuthService(repository: AuthRepository) {
         );
       }
 
-      const { passwordHash: _, ...safeUser } = user;
+      const { passwordHash: _passwordHash, ...safeUser } = user;
+      void _passwordHash;
 
       return safeUser;
     },
@@ -70,7 +68,8 @@ export function createAuthService(repository: AuthRepository) {
         throw new AppError('User not found', 404, 'USER_NOT_FOUND');
       }
 
-      const { passwordHash: _, ...safeUser } = user;
+      const { passwordHash: _passwordHash, ...safeUser } = user;
+      void _passwordHash;
 
       return safeUser;
     },

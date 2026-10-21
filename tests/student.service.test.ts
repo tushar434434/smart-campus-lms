@@ -105,22 +105,22 @@ describe('Student service - linkStudentUser', () => {
   });
 
   it('rejects a student who already has a linked account', async () => {
-  vi.mocked(studentRepository.findById).mockResolvedValue({
-    ...student,
-    userId: 'existing-user',
+    vi.mocked(studentRepository.findById).mockResolvedValue({
+      ...student,
+      userId: 'existing-user',
+    });
+
+    vi.mocked(authRepository.findById).mockResolvedValue(user);
+
+    await expect(
+      service.linkStudentUser('student-1', 'user-1'),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      code: 'STUDENT_ALREADY_LINKED',
+    });
+
+    expect(studentRepository.linkUser).not.toHaveBeenCalled();
   });
-
-  vi.mocked(authRepository.findById).mockResolvedValue(user);
-
-  await expect(
-    service.linkStudentUser('student-1', 'user-1'),
-  ).rejects.toMatchObject({
-    statusCode: 409,
-    code: 'STUDENT_ALREADY_LINKED',
-  });
-
-  expect(studentRepository.linkUser).not.toHaveBeenCalled();
-});
 
   it('rejects a user already linked to another student', async () => {
     vi.mocked(studentRepository.findById).mockResolvedValue(student);

@@ -321,9 +321,7 @@ describe('Submission Routes', () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json().data.content).toBe(
-      'My updated assignment solution',
-    );
+    expect(response.json().data.content).toBe('My updated assignment solution');
   });
 
   it('should reject another student from updating the submission', async () => {

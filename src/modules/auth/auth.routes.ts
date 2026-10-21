@@ -146,10 +146,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (
         );
       }
 
-      const user = await service.login(
-        result.data.email,
-        result.data.password,
-      );
+      const user = await service.login(result.data.email, result.data.password);
 
       const token = app.jwt.sign({
         sub: user.id,

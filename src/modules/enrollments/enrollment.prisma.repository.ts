@@ -35,9 +35,7 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
       orderBy: { enrolledAt: 'desc' },
     });
 
-    return enrollments.map((enrollment) =>
-      this.toEnrollment(enrollment),
-    );
+    return enrollments.map((enrollment) => this.toEnrollment(enrollment));
   }
 
   async findByStudentAndCourse(

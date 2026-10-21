@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PrismaStudentRepository } from '../src/modules/students/student.prisma.repository';
 import { Prisma } from '../src/generated/prisma/client';
 
-const { findUnique, update, delete: deleteStudent } = vi.hoisted(() => ({
+const {
+  findUnique,
+  update,
+  delete: deleteStudent,
+} = vi.hoisted(() => ({
   findUnique: vi.fn(),
   update: vi.fn(),
   delete: vi.fn(),
@@ -85,9 +89,7 @@ describe('PrismaStudentRepository', () => {
 
     update.mockResolvedValue(student);
 
-    await expect(
-      repository.linkUser('student-1', 'user-1'),
-    ).resolves.toEqual({
+    await expect(repository.linkUser('student-1', 'user-1')).resolves.toEqual({
       ...student,
       createdAt: student.createdAt.toISOString(),
     });
@@ -99,13 +101,10 @@ describe('PrismaStudentRepository', () => {
   });
 
   it('linkUser returns undefined when the student does not exist', async () => {
-    const error = new Prisma.PrismaClientKnownRequestError(
-      'Record not found',
-      {
-        code: 'P2025',
-        clientVersion: 'test',
-      },
-    );
+    const error = new Prisma.PrismaClientKnownRequestError('Record not found', {
+      code: 'P2025',
+      clientVersion: 'test',
+    });
 
     update.mockRejectedValue(error);
 

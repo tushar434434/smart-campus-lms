@@ -1,12 +1,10 @@
-import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyRequest } from 'fastify';
+
 import { AppError } from '../errors/app-error.js';
 import type { UserRole } from '../modules/auth/auth.schema.js';
 
 export function authorize(...allowedRoles: UserRole[]) {
-  return async function (
-    request: FastifyRequest,
-    _reply: FastifyReply,
-  ): Promise<void> {
+  return async function (request: FastifyRequest): Promise<void> {
     if (!request.user) {
       throw new AppError('Authentication required', 401, 'UNAUTHORIZED');
     }

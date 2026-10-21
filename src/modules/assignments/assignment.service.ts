@@ -15,17 +15,11 @@ export function createAssignmentService(
   },
 ) {
   return {
-    async createAssignment(
-      input: CreateAssignmentInput,
-    ): Promise<Assignment> {
+    async createAssignment(input: CreateAssignmentInput): Promise<Assignment> {
       const course = await courseRepository.findById(input.courseId);
 
       if (!course) {
-        throw new AppError(
-          'Course not found',
-          404,
-          'COURSE_NOT_FOUND',
-        );
+        throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
       }
 
       return repository.create(input);
@@ -35,27 +29,17 @@ export function createAssignmentService(
       const assignment = await repository.findById(id);
 
       if (!assignment) {
-        throw new AppError(
-          'Assignment not found',
-          404,
-          'ASSIGNMENT_NOT_FOUND',
-        );
+        throw new AppError('Assignment not found', 404, 'ASSIGNMENT_NOT_FOUND');
       }
 
       return assignment;
     },
 
-    async getAssignmentsByCourse(
-      courseId: string,
-    ): Promise<Assignment[]> {
+    async getAssignmentsByCourse(courseId: string): Promise<Assignment[]> {
       const course = await courseRepository.findById(courseId);
 
       if (!course) {
-        throw new AppError(
-          'Course not found',
-          404,
-          'COURSE_NOT_FOUND',
-        );
+        throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
       }
 
       return repository.findAllByCourseId(courseId);
@@ -81,11 +65,7 @@ export function createAssignmentService(
       });
 
       if (!assignment) {
-        throw new AppError(
-          'Assignment not found',
-          404,
-          'ASSIGNMENT_NOT_FOUND',
-        );
+        throw new AppError('Assignment not found', 404, 'ASSIGNMENT_NOT_FOUND');
       }
 
       return assignment;
@@ -95,11 +75,7 @@ export function createAssignmentService(
       const deleted = await repository.delete(id);
 
       if (!deleted) {
-        throw new AppError(
-          'Assignment not found',
-          404,
-          'ASSIGNMENT_NOT_FOUND',
-        );
+        throw new AppError('Assignment not found', 404, 'ASSIGNMENT_NOT_FOUND');
       }
     },
   };

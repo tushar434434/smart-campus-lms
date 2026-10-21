@@ -237,9 +237,7 @@ describe('Smart Campus LMS API', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json().success).toBe(true);
     expect(response.json().data.credits).toBe(5);
-    expect(response.json().data.title).toBe(
-      'Database Management Systems',
-    );
+    expect(response.json().data.title).toBe('Database Management Systems');
   });
 
   // Course retrieval
@@ -268,9 +266,7 @@ describe('Smart Campus LMS API', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json().success).toBe(true);
     expect(response.json().data.id).toBe(createdCourse.id);
-    expect(response.json().data.title).toBe(
-      'Database Management Systems',
-    );
+    expect(response.json().data.title).toBe('Database Management Systems');
   });
 
   it('should create a course with an ID and timestamp', async () => {
@@ -428,10 +424,7 @@ describe('Smart Campus LMS API', () => {
       },
     });
 
-    expect(
-      response.statusCode,
-      `Response body: ${response.body}`,
-    ).toBe(201);
+    expect(response.statusCode, `Response body: ${response.body}`).toBe(201);
 
     expect(response.json()).toMatchObject({
       success: true,
