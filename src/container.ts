@@ -18,6 +18,9 @@ import { createEnrollmentService } from './modules/enrollments/enrollment.servic
 import { PrismaQuizRepository } from './modules/quizzes/quiz.prisma.repository.js';
 import { QuizService } from './modules/quizzes/quiz.service.js';
 
+import { PrismaQuizAttemptRepository } from './modules/quiz-attempts/quiz-attempt.prisma.repository.js';
+import { QuizAttemptService } from './modules/quiz-attempts/quiz-attempt.service.js';
+
 import { PrismaStudentRepository } from './modules/students/student.prisma.repository.js';
 import { createStudentService } from './modules/students/student.service.js';
 
@@ -48,6 +51,8 @@ export function createContainer() {
   const authRepository = new PrismaAuthRepository(prisma);
   const quizRepository = new PrismaQuizRepository(prisma);
 
+  const quizAttemptRepository = new PrismaQuizAttemptRepository(prisma);
+
   // Services
   const courseService = createCourseService(courseRepository);
 
@@ -77,6 +82,12 @@ export function createContainer() {
 
   const quizService = new QuizService(quizRepository, courseRepository);
 
+  const quizAttemptService = new QuizAttemptService(
+    quizAttemptRepository,
+    quizRepository,
+    enrollmentRepository,
+  );
+
   return {
     prisma,
 
@@ -100,5 +111,8 @@ export function createContainer() {
 
     quizRepository,
     quizService,
+
+    quizAttemptRepository,
+    quizAttemptService,
   };
 }

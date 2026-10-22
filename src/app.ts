@@ -15,6 +15,7 @@ import { assignmentRoutes } from './modules/assignments/assignment.routes.js';
 import { submissionRoutes } from './modules/submissions/submission.routes.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
 import { quizRoutes } from './modules/quizzes/quiz.routes.js';
+import { quizAttemptRoutes } from './modules/quiz-attempts/quiz-attempt.routes.js';
 
 type AppContainer = Pick<
   ReturnType<typeof createContainer>,
@@ -25,6 +26,7 @@ type AppContainer = Pick<
   | 'submissionService'
   | 'authService'
   | 'quizService'
+  | 'quizAttemptService'
 >;
 
 export function buildApp(container: AppContainer) {
@@ -76,6 +78,11 @@ export function buildApp(container: AppContainer) {
         {
           name: 'Quizzes',
           description: 'Quiz management endpoints',
+        },
+        {
+          name: 'Quiz Attempts',
+          description:
+            'Starting quizzes, answering questions, and submitting attempts',
         },
       ],
       components: {
@@ -132,6 +139,7 @@ export function buildApp(container: AppContainer) {
     submissionService,
     authService,
     quizService,
+    quizAttemptService,
   } = container;
 
   // Health check
@@ -181,6 +189,11 @@ export function buildApp(container: AppContainer) {
   // Quiz routes
   app.register(async (quizApp) => {
     await quizRoutes(quizApp, quizService);
+  });
+
+  // Quiz attempt routes
+  app.register(async (attemptApp) => {
+    await quizAttemptRoutes(attemptApp, quizAttemptService);
   });
 
   // Authentication routes
