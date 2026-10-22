@@ -1,11 +1,4 @@
-
-import {
-  afterAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-} from 'vitest';
+import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 
 import { createTestContainer } from '../src/test-container.js';
@@ -87,9 +80,7 @@ describe('Assignment Routes', () => {
     });
 
     expect(response.statusCode, response.body).toBe(201);
-    expect(response.json().data.title).toBe(
-      'Data Structures Assignment',
-    );
+    expect(response.json().data.title).toBe('Data Structures Assignment');
   });
 
   it('should reject invalid assignment input', async () => {

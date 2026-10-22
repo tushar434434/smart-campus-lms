@@ -7,6 +7,15 @@ import type {
 import type { Course } from './course.repository.js';
 import type { CourseRepository } from './course.repository.interface.js';
 
+function isPrismaErrorCode(error: unknown, code: string): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === code
+  );
+}
+
 export class PrismaCourseRepository implements CourseRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -24,7 +33,14 @@ export class PrismaCourseRepository implements CourseRepository {
         createdAt: course.createdAt.toISOString(),
       };
     } catch (error) {
-      console.error('PRISMA COURSE CREATE ERROR:', error);
+      if (isPrismaErrorCode(error, 'P2002')) {
+        const duplicateError = new Error('Course code already exists');
+        Object.assign(duplicateError, {
+          code: 'COURSE_CODE_EXISTS',
+        });
+        throw duplicateError;
+      }
+
       throw error;
     }
   }
@@ -65,7 +81,6 @@ export class PrismaCourseRepository implements CourseRepository {
           createdAt: 'desc',
         },
       }),
-
       this.prisma.course.count({
         where,
       }),
@@ -129,12 +144,7 @@ export class PrismaCourseRepository implements CourseRepository {
         createdAt: course.createdAt.toISOString(),
       };
     } catch (error) {
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        'code' in error &&
-        error.code === 'P2025'
-      ) {
+      if (isPrismaErrorCode(error, 'P2025')) {
         return undefined;
       }
 
@@ -150,12 +160,7 @@ export class PrismaCourseRepository implements CourseRepository {
 
       return true;
     } catch (error) {
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        'code' in error &&
-        error.code === 'P2025'
-      ) {
+      if (isPrismaErrorCode(error, 'P2025')) {
         return false;
       }
 

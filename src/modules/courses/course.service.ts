@@ -1,4 +1,3 @@
-
 import { AppError } from '../../errors/app-error.js';
 import type {
   CreateCourseInput,
@@ -18,11 +17,7 @@ function isDuplicateCourseCodeError(error: unknown): boolean {
 
 function handleCourseError(error: unknown): never {
   if (isDuplicateCourseCodeError(error)) {
-    throw new AppError(
-      'Course code already exists',
-      409,
-      'COURSE_CODE_EXISTS',
-    );
+    throw new AppError('Course code already exists', 409, 'COURSE_CODE_EXISTS');
   }
 
   throw error;
@@ -67,11 +62,7 @@ export function createCourseService(repository: CourseRepository) {
         const course = await repository.update(id, input);
 
         if (!course) {
-          throw new AppError(
-            'Course not found',
-            404,
-            'COURSE_NOT_FOUND',
-          );
+          throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
         }
 
         return course;

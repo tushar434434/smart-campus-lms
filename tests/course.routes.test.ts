@@ -1,11 +1,4 @@
-
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-} from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 
 import { createTestContainer } from '../src/test-container.js';
@@ -163,9 +156,7 @@ describe('Course Routes', () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json().data.title).toBe(
-      'Advanced Data Structures',
-    );
+    expect(response.json().data.title).toBe('Advanced Data Structures');
   });
 
   it('should reject an empty course update', async () => {
@@ -274,9 +265,7 @@ describe('Course Routes', () => {
     });
 
     expect(secondResponse.statusCode).toBe(409);
-    expect(secondResponse.json().error.code).toBe(
-      'COURSE_CODE_EXISTS',
-    );
+    expect(secondResponse.json().error.code).toBe('COURSE_CODE_EXISTS');
   });
 
   it('should return 404 when updating a nonexistent course', async () => {

@@ -4,6 +4,11 @@ import { createContainer } from './container.js';
 const container = createContainer();
 const app = buildApp(container);
 
+// Disconnect Prisma when Fastify closes.
+app.addHook('onClose', async () => {
+  await container.prisma.$disconnect();
+});
+
 const start = async () => {
   try {
     await app.listen({
@@ -12,8 +17,23 @@ const start = async () => {
     });
   } catch (error) {
     app.log.error(error);
-    process.exit(1);
+    await app.close();
+    process.exitCode = 1;
   }
 };
+
+const shutdown = async (signal: string) => {
+  app.log.info(`Received ${signal}; shutting down gracefully`);
+
+  try {
+    await app.close();
+  } catch (error) {
+    app.log.error(error);
+    process.exitCode = 1;
+  }
+};
+
+process.once('SIGINT', () => void shutdown('SIGINT'));
+process.once('SIGTERM', () => void shutdown('SIGTERM'));
 
 await start();

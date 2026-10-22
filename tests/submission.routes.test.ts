@@ -119,8 +119,13 @@ describe('Submission Routes', () => {
       },
     });
 
-    courseId = courseResponse.json().data.id;
+    const courseBody = courseResponse.json();
 
+    expect(courseResponse.statusCode, JSON.stringify(courseBody)).toBe(201);
+
+    courseId = courseBody.data.id;
+    console.log('Course status:', courseResponse.statusCode);
+    console.log('Course response:', courseResponse.json());
     const assignmentResponse = await app.inject({
       method: 'POST',
       url: '/assignments',
