@@ -1,10 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 
 import { AppError } from '../../errors/app-error.js';
-import { successResponse } from '../../utils/response.js';
-
 import { authenticate } from '../../middleware/authenticate.js';
 import { authorize } from '../../middleware/authorize.js';
+import { successResponse } from '../../utils/response.js';
 
 import {
   createCourseSchema,
@@ -18,6 +17,24 @@ type CourseRoutesOptions = {
   service: ReturnType<typeof createCourseService>;
 };
 
+type CourseParams = {
+  id: string;
+};
+
+const uuidPattern =
+  '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$';
+
+const courseIdSchema = {
+  type: 'object',
+  required: ['id'],
+  properties: {
+    id: {
+      type: 'string',
+      pattern: uuidPattern,
+    },
+  },
+} as const;
+
 export async function courseRoutes(
   app: FastifyInstance,
   { service }: CourseRoutesOptions,
@@ -27,55 +44,6 @@ export async function courseRoutes(
     '/courses',
     {
       preHandler: [authenticate, authorize('faculty', 'admin')],
-      schema: {
-        tags: ['Courses'],
-        summary: 'Create a course',
-        description: 'Creates a new course. Faculty and admin users only.',
-        security: [{ bearerAuth: [] }],
-
-        body: {
-          type: 'object',
-          required: ['title', 'code', 'credits'],
-          properties: {
-            title: {
-              type: 'string',
-              minLength: 3,
-            },
-            code: {
-              type: 'string',
-              pattern: '^[A-Z]{2,5}[0-9]{3,4}$',
-            },
-            credits: {
-              type: 'integer',
-              minimum: 1,
-              maximum: 6,
-            },
-          },
-        },
-
-        response: {
-          201: {
-            description: 'Course created successfully',
-            type: 'object',
-            additionalProperties: true,
-          },
-          400: {
-            description: 'Invalid course data',
-            type: 'object',
-            additionalProperties: true,
-          },
-          401: {
-            description: 'Authentication required',
-            type: 'object',
-            additionalProperties: true,
-          },
-          403: {
-            description: 'Faculty or admin access required',
-            type: 'object',
-            additionalProperties: true,
-          },
-        },
-      },
     },
     async (request, reply) => {
       const result = createCourseSchema.safeParse(request.body);
@@ -93,110 +61,34 @@ export async function courseRoutes(
       const course = await service.create(result.data);
 
       return reply
-        .status(201)
+        .code(201)
         .send(successResponse('Course created successfully', course));
     },
   );
 
   // List courses: Public
-  app.get(
-    '/courses',
-    {
-      schema: {
-        tags: ['Courses'],
-        summary: 'List courses',
-        description:
-          'Returns a paginated list of courses with optional search and credit filters.',
+  app.get('/courses', async (request) => {
+    const result = listCoursesSchema.safeParse(request.query);
 
-        querystring: {
-          type: 'object',
-          properties: {
-            page: {
-              type: 'integer',
-              minimum: 1,
-              default: 1,
-            },
-            limit: {
-              type: 'integer',
-              minimum: 1,
-              maximum: 100,
-              default: 10,
-            },
-            search: {
-              type: 'string',
-            },
-            credits: {
-              type: 'integer',
-              minimum: 1,
-              maximum: 6,
-            },
-          },
-        },
+    if (!result.success) {
+      throw new AppError(
+        'Invalid course query parameters',
+        400,
+        'VALIDATION_ERROR',
+      );
+    }
 
-        response: {
-          200: {
-            description: 'Courses retrieved successfully',
-            type: 'object',
-            additionalProperties: true,
-          },
-          400: {
-            description: 'Invalid query parameters',
-            type: 'object',
-            additionalProperties: true,
-          },
-        },
-      },
-    },
-    async (request) => {
-      const result = listCoursesSchema.safeParse(request.query);
+    const courses = await service.list(result.data);
 
-      if (!result.success) {
-        throw new AppError(
-          result.error.issues
-            .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
-            .join(', '),
-          400,
-          'VALIDATION_ERROR',
-        );
-      }
-
-      const courses = await service.list(result.data);
-
-      return successResponse('Courses retrieved successfully', courses);
-    },
-  );
+    return successResponse('Courses retrieved successfully', courses);
+  });
 
   // Get course by ID: Public
-  app.get<{ Params: { id: string } }>(
+  app.get<{ Params: CourseParams }>(
     '/courses/:id',
     {
       schema: {
-        tags: ['Courses'],
-        summary: 'Get course by ID',
-        description: 'Returns a single course using its ID.',
-
-        params: {
-          type: 'object',
-          required: ['id'],
-          properties: {
-            id: {
-              type: 'string',
-            },
-          },
-        },
-
-        response: {
-          200: {
-            description: 'Course retrieved successfully',
-            type: 'object',
-            additionalProperties: true,
-          },
-          404: {
-            description: 'Course not found',
-            type: 'object',
-            additionalProperties: true,
-          },
-        },
+        params: courseIdSchema,
       },
     },
     async (request) => {
@@ -207,73 +99,12 @@ export async function courseRoutes(
   );
 
   // Update course: Faculty and Admin only
-  app.patch<{ Params: { id: string } }>(
+  app.patch<{ Params: CourseParams }>(
     '/courses/:id',
     {
       preHandler: [authenticate, authorize('faculty', 'admin')],
       schema: {
-        tags: ['Courses'],
-        summary: 'Update a course',
-        description:
-          'Updates one or more fields of an existing course. Faculty and admin users only.',
-        security: [{ bearerAuth: [] }],
-
-        params: {
-          type: 'object',
-          required: ['id'],
-          properties: {
-            id: {
-              type: 'string',
-            },
-          },
-        },
-
-        body: {
-          type: 'object',
-          properties: {
-            title: {
-              type: 'string',
-              minLength: 3,
-            },
-            code: {
-              type: 'string',
-              pattern: '^[A-Z]{2,5}[0-9]{3,4}$',
-            },
-            credits: {
-              type: 'integer',
-              minimum: 1,
-              maximum: 6,
-            },
-          },
-        },
-
-        response: {
-          200: {
-            description: 'Course updated successfully',
-            type: 'object',
-            additionalProperties: true,
-          },
-          400: {
-            description: 'Invalid course data',
-            type: 'object',
-            additionalProperties: true,
-          },
-          401: {
-            description: 'Authentication required',
-            type: 'object',
-            additionalProperties: true,
-          },
-          403: {
-            description: 'Faculty or admin access required',
-            type: 'object',
-            additionalProperties: true,
-          },
-          404: {
-            description: 'Course not found',
-            type: 'object',
-            additionalProperties: true,
-          },
-        },
+        params: courseIdSchema,
       },
     },
     async (request) => {
@@ -281,7 +112,9 @@ export async function courseRoutes(
 
       if (!result.success) {
         throw new AppError(
-          result.error.issues.map((issue) => issue.message).join(', '),
+          result.error.issues
+            .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+            .join(', '),
           400,
           'VALIDATION_ERROR',
         );
@@ -294,56 +127,21 @@ export async function courseRoutes(
   );
 
   // Delete course: Admin only
-  app.delete<{ Params: { id: string } }>(
+  app.delete<{ Params: CourseParams }>(
     '/courses/:id',
     {
       preHandler: [authenticate, authorize('admin')],
       schema: {
-        tags: ['Courses'],
-        summary: 'Delete a course',
-        description: 'Deletes a course. Admin users only.',
-        security: [{ bearerAuth: [] }],
-
-        params: {
-          type: 'object',
-          required: ['id'],
-          properties: {
-            id: {
-              type: 'string',
-            },
-          },
-        },
-
-        response: {
-          200: {
-            description: 'Course deleted successfully',
-            type: 'object',
-            additionalProperties: true,
-          },
-          401: {
-            description: 'Authentication required',
-            type: 'object',
-            additionalProperties: true,
-          },
-          403: {
-            description: 'Admin access required',
-            type: 'object',
-            additionalProperties: true,
-          },
-          404: {
-            description: 'Course not found',
-            type: 'object',
-            additionalProperties: true,
-          },
-        },
+        params: courseIdSchema,
       },
     },
     async (request) => {
+      // Fetch first so the deleted course can be returned in the response.
+      const course = await service.getById(request.params.id);
+
       await service.delete(request.params.id);
 
-      return successResponse('Course deleted successfully', {
-        id: request.params.id,
-      });
+      return successResponse('Course deleted successfully', course);
     },
   );
 }

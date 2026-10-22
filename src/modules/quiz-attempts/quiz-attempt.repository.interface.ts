@@ -40,5 +40,8 @@ export interface QuizAttemptRepository {
 
   saveAnswer(input: QuizAnswerInput): Promise<void>;
 
-  submit(id: string): Promise<QuizAttempt | undefined>;
+  submit(
+    id: string,
+    status?: 'submitted' | 'auto_submitted',
+  ): Promise<QuizAttempt | undefined>;
 }

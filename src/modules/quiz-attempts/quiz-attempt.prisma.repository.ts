@@ -1,4 +1,4 @@
-import { PrismaClient } from '../../generated/prisma/client.js';
+import type { PrismaClient } from '../../generated/prisma/client.js';
 import type {
   QuizAttempt,
   QuizAttemptRepository,
@@ -24,10 +24,7 @@ export class PrismaQuizAttemptRepository implements QuizAttemptRepository {
         },
       });
 
-      if (!quiz) {
-        throw new Error('QUIZ_NOT_FOUND');
-      }
-
+      if (!quiz) throw new Error('QUIZ_NOT_FOUND');
       if (quiz.status !== 'published') {
         throw new Error('QUIZ_NOT_AVAILABLE');
       }
@@ -38,7 +35,7 @@ export class PrismaQuizAttemptRepository implements QuizAttemptRepository {
         throw new Error('QUIZ_NOT_STARTED');
       }
 
-      if (quiz.endsAt && now > quiz.endsAt) {
+      if (quiz.endsAt && now >= quiz.endsAt) {
         throw new Error('QUIZ_ENDED');
       }
 
@@ -51,9 +48,7 @@ export class PrismaQuizAttemptRepository implements QuizAttemptRepository {
         },
       });
 
-      if (!enrollment) {
-        throw new Error('NOT_ENROLLED');
-      }
+      if (!enrollment) throw new Error('NOT_ENROLLED');
 
       if (quiz._count.attempts >= quiz.maxAttempts) {
         throw new Error('MAX_ATTEMPTS_REACHED');
@@ -88,7 +83,6 @@ export class PrismaQuizAttemptRepository implements QuizAttemptRepository {
         optionD: true,
         marks: true,
       },
-      orderBy: { id: 'asc' },
     });
 
     return questions;
@@ -100,9 +94,7 @@ export class PrismaQuizAttemptRepository implements QuizAttemptRepository {
         where: { id: input.attemptId },
       });
 
-      if (!attempt) {
-        throw new Error('ATTEMPT_NOT_FOUND');
-      }
+      if (!attempt) throw new Error('ATTEMPT_NOT_FOUND');
 
       if (attempt.status !== 'in_progress') {
         throw new Error('ATTEMPT_ALREADY_SUBMITTED');
@@ -115,9 +107,7 @@ export class PrismaQuizAttemptRepository implements QuizAttemptRepository {
         },
       });
 
-      if (!question) {
-        throw new Error('QUESTION_NOT_FOUND');
-      }
+      if (!question) throw new Error('QUESTION_NOT_FOUND');
 
       await tx.quizAnswer.upsert({
         where: {
@@ -138,7 +128,10 @@ export class PrismaQuizAttemptRepository implements QuizAttemptRepository {
     });
   }
 
-  async submit(id: string): Promise<QuizAttempt | undefined> {
+  async submit(
+    id: string,
+    status: 'submitted' | 'auto_submitted' = 'submitted',
+  ): Promise<QuizAttempt | undefined> {
     return this.prisma.$transaction(async (tx) => {
       const attempt = await tx.quizAttempt.findUnique({
         where: { id },
@@ -149,12 +142,11 @@ export class PrismaQuizAttemptRepository implements QuizAttemptRepository {
         },
       });
 
-      if (!attempt) {
-        return undefined;
-      }
+      if (!attempt) return undefined;
 
+      // Avoid scoring the same attempt more than once.
       if (attempt.status !== 'in_progress') {
-        throw new Error('ATTEMPT_ALREADY_SUBMITTED');
+        return this.toAttempt(attempt);
       }
 
       let score = 0;
@@ -162,8 +154,8 @@ export class PrismaQuizAttemptRepository implements QuizAttemptRepository {
       for (const answer of attempt.answers) {
         const isCorrect =
           answer.selectedOption === answer.question.correctOption;
-        const marksAwarded = isCorrect ? answer.question.marks : 0;
 
+        const marksAwarded = isCorrect ? answer.question.marks : 0;
         score += marksAwarded;
 
         await tx.quizAnswer.update({
@@ -177,7 +169,7 @@ export class PrismaQuizAttemptRepository implements QuizAttemptRepository {
         data: {
           score,
           submittedAt: new Date(),
-          status: 'submitted',
+          status,
         },
       });
 

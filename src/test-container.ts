@@ -13,6 +13,9 @@ import { createEnrollmentService } from './modules/enrollments/enrollment.servic
 import { InMemoryQuizRepository } from './modules/quizzes/quiz.repository.js';
 import { QuizService } from './modules/quizzes/quiz.service.js';
 
+import { InMemoryQuizAttemptRepository } from './modules/quiz-attempts/quiz-attempt.in-memory.repository.js';
+import { QuizAttemptService } from './modules/quiz-attempts/quiz-attempt.service.js';
+
 import { InMemoryStudentRepository } from './modules/students/student.repository.js';
 import { createStudentService } from './modules/students/student.service.js';
 
@@ -28,6 +31,7 @@ export function createTestContainer() {
   const submissionRepository = new InMemorySubmissionRepository();
   const authRepository = new InMemoryAuthRepository();
   const quizRepository = new InMemoryQuizRepository();
+  const quizAttemptRepository = new InMemoryQuizAttemptRepository();
 
   // Services
   const courseService = createCourseService(courseRepository);
@@ -58,6 +62,12 @@ export function createTestContainer() {
 
   const quizService = new QuizService(quizRepository, courseRepository);
 
+  const quizAttemptService = new QuizAttemptService(
+    quizAttemptRepository,
+    quizRepository,
+    enrollmentRepository,
+  );
+
   return {
     courseRepository,
     courseService,
@@ -79,5 +89,8 @@ export function createTestContainer() {
 
     quizRepository,
     quizService,
+
+    quizAttemptRepository,
+    quizAttemptService,
   };
 }

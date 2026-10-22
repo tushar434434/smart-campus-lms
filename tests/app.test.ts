@@ -11,6 +11,8 @@ describe('Smart Campus LMS API', () => {
   let studentToken: string;
   let adminToken: string;
 
+  const nonexistentCourseId = '00000000-0000-4000-8000-000000000001';
+
   beforeEach(async () => {
     app = buildApp(createTestContainer());
 
@@ -108,7 +110,7 @@ describe('Smart Campus LMS API', () => {
   it('should return 404 when deleting a nonexistent course', async () => {
     const response = await app.inject({
       method: 'DELETE',
-      url: '/courses/nonexistent-id',
+      url: `/courses/${nonexistentCourseId}`,
       headers: authHeaders(adminToken),
     });
 
@@ -186,7 +188,7 @@ describe('Smart Campus LMS API', () => {
   it('should return 404 when updating a nonexistent course', async () => {
     const response = await app.inject({
       method: 'PATCH',
-      url: '/courses/nonexistent-id',
+      url: `/courses/${nonexistentCourseId}`,
       headers: authHeaders(facultyToken),
       payload: {
         credits: 5,
@@ -200,7 +202,7 @@ describe('Smart Campus LMS API', () => {
   it('should reject an empty course update', async () => {
     const response = await app.inject({
       method: 'PATCH',
-      url: '/courses/some-course-id',
+      url: `/courses/${nonexistentCourseId}`,
       headers: authHeaders(facultyToken),
       payload: {},
     });
