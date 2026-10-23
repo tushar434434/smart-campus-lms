@@ -1,3 +1,4 @@
+
 import { Prisma } from '../../generated/prisma/client.js';
 import { PrismaClient } from '../../generated/prisma/client.js';
 
@@ -82,6 +83,31 @@ export class PrismaQuizRepository implements QuizRepository {
           ...(input.showCorrectAnswers !== undefined && {
             showCorrectAnswers: input.showCorrectAnswers,
           }),
+        },
+      });
+
+      return this.toQuiz(quiz);
+    } catch (error: unknown) {
+      if (this.isRecordNotFoundError(error)) {
+        return undefined;
+      }
+
+      throw error;
+    }
+  }
+
+  async countQuestions(id: string): Promise<number> {
+    return this.prisma.quizQuestion.count({
+      where: { quizId: id },
+    });
+  }
+
+  async publish(id: string): Promise<Quiz | undefined> {
+    try {
+      const quiz = await this.prisma.quiz.update({
+        where: { id },
+        data: {
+          status: 'published',
         },
       });
 

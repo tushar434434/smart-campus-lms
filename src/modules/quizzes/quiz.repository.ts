@@ -1,7 +1,7 @@
+
 import { randomUUID } from 'node:crypto';
 
 import type { CreateQuizInput, UpdateQuizInput } from './quiz.schema.js';
-
 import type {
   Quiz,
   QuizRepository,
@@ -10,6 +10,7 @@ import type {
 
 export class InMemoryQuizRepository implements QuizRepository {
   private readonly quizzes = new Map<string, Quiz>();
+  private readonly questionCounts = new Map<string, number>();
 
   async create(input: CreateQuizInput): Promise<Quiz> {
     const now = new Date();
@@ -33,6 +34,7 @@ export class InMemoryQuizRepository implements QuizRepository {
     };
 
     this.quizzes.set(quiz.id, quiz);
+    this.questionCounts.set(quiz.id, 0);
 
     return { ...quiz };
   }
@@ -45,11 +47,13 @@ export class InMemoryQuizRepository implements QuizRepository {
 
   async findById(id: string): Promise<Quiz | undefined> {
     const quiz = this.quizzes.get(id);
-
     return quiz ? { ...quiz } : undefined;
   }
 
-  async update(id: string, input: UpdateQuizInput): Promise<Quiz | undefined> {
+  async update(
+    id: string,
+    input: UpdateQuizInput,
+  ): Promise<Quiz | undefined> {
     const existingQuiz = this.quizzes.get(id);
 
     if (!existingQuiz) {
@@ -82,8 +86,28 @@ export class InMemoryQuizRepository implements QuizRepository {
     };
 
     this.quizzes.set(id, updatedQuiz);
-
     return { ...updatedQuiz };
+  }
+
+  async countQuestions(id: string): Promise<number> {
+    return this.questionCounts.get(id) ?? 0;
+  }
+
+  async publish(id: string): Promise<Quiz | undefined> {
+    const existingQuiz = this.quizzes.get(id);
+
+    if (!existingQuiz) {
+      return undefined;
+    }
+
+    const publishedQuiz: Quiz = {
+      ...existingQuiz,
+      status: 'published',
+      updatedAt: new Date(),
+    };
+
+    this.quizzes.set(id, publishedQuiz);
+    return { ...publishedQuiz };
   }
 
   async releaseResults(
@@ -107,11 +131,11 @@ export class InMemoryQuizRepository implements QuizRepository {
     };
 
     this.quizzes.set(id, updatedQuiz);
-
     return { ...updatedQuiz };
   }
 
   async delete(id: string): Promise<boolean> {
+    this.questionCounts.delete(id);
     return this.quizzes.delete(id);
   }
 }

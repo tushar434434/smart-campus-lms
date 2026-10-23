@@ -1,13 +1,16 @@
 import type { FastifyInstance } from 'fastify';
+
 import { AppError } from '../../errors/app-error.js';
 import { authenticate } from '../../middleware/authenticate.js';
 import { authorize } from '../../middleware/authorize.js';
-import type { QuizService } from './quiz.service.js';
+
 import {
   createQuizSchema,
-  releaseQuizResultsSchema,
   updateQuizSchema,
+  releaseQuizResultsSchema,
 } from './quiz.schema.js';
+
+import type { QuizService } from './quiz.service.js';
 
 type QuizRouteUser = {
   role: 'admin' | 'faculty' | 'student';
@@ -33,6 +36,28 @@ export async function quizRoutes(
       const quiz = await service.create(parsed.data);
 
       return reply.code(201).send({
+        success: true,
+        data: quiz,
+      });
+    },
+  );
+
+  // Publish a quiz: Faculty and Admin only
+  app.post(
+    '/quizzes/:id/publish',
+    {
+      preHandler: [authenticate, authorize('faculty', 'admin')],
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+
+      if (!isUuid(id)) {
+        throw new AppError('Invalid quiz ID', 400, 'VALIDATION_ERROR');
+      }
+
+      const quiz = await service.publish(id);
+
+      return reply.code(200).send({
         success: true,
         data: quiz,
       });
@@ -145,7 +170,7 @@ export async function quizRoutes(
     },
   );
 
-  // Delete a quiz (admin only)
+  // Delete a quiz: Admin only
   app.delete(
     '/quizzes/:id',
     {

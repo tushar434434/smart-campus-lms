@@ -1,5 +1,7 @@
+
 import { AppError } from '../../errors/app-error.js';
 import type { CourseRepository } from '../courses/course.repository.interface.js';
+
 import type {
   CreateQuizInput,
   UpdateQuizInput,
@@ -67,6 +69,32 @@ export class QuizService {
     }
 
     return quiz;
+  }
+
+  async publish(id: string): Promise<Quiz> {
+    const quiz = await this.quizRepository.findById(id);
+
+    if (!quiz) {
+      throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
+    }
+
+    const questionCount = await this.quizRepository.countQuestions(id);
+
+    if (questionCount === 0) {
+      throw new AppError(
+        'Cannot publish a quiz without questions',
+        400,
+        'QUIZ_HAS_NO_QUESTIONS',
+      );
+    }
+
+    const publishedQuiz = await this.quizRepository.publish(id);
+
+    if (!publishedQuiz) {
+      throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
+    }
+
+    return publishedQuiz;
   }
 
   async releaseResults(

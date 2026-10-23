@@ -1,3 +1,4 @@
+
 import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/app.js';
@@ -57,6 +58,85 @@ describe('Quiz Routes', () => {
 
   afterEach(async () => {
     await app.close();
+  });
+
+  it('should reject publishing a draft quiz without questions', async () => {
+    const created = await app.inject({
+      method: 'POST',
+      url: '/quizzes',
+      headers: { authorization: `Bearer ${facultyToken}` },
+      payload: validQuiz(),
+    });
+
+    expect(created.statusCode).toBe(201);
+
+    const quizId = created.json().data.id;
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/quizzes/${quizId}/publish`,
+      headers: { authorization: `Bearer ${facultyToken}` },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('QUIZ_HAS_NO_QUESTIONS');
+
+    const quizResponse = await app.inject({
+      method: 'GET',
+      url: `/quizzes/${quizId}`,
+      headers: { authorization: `Bearer ${facultyToken}` },
+    });
+
+    expect(quizResponse.statusCode).toBe(200);
+    expect(quizResponse.json().data.status).toBe('draft');
+  });
+
+  it('should reject publishing a quiz without questions', async () => {
+    const created = await app.inject({
+      method: 'POST',
+      url: '/quizzes',
+      headers: { authorization: `Bearer ${facultyToken}` },
+      payload: validQuiz(),
+    });
+
+    expect(created.statusCode).toBe(201);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/quizzes/${created.json().data.id}/publish`,
+      headers: { authorization: `Bearer ${facultyToken}` },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('QUIZ_HAS_NO_QUESTIONS');
+  });
+
+  it('should reject quiz publishing by a student', async () => {
+    const created = await app.inject({
+      method: 'POST',
+      url: '/quizzes',
+      headers: { authorization: `Bearer ${facultyToken}` },
+      payload: validQuiz(),
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/quizzes/${created.json().data.id}/publish`,
+      headers: { authorization: `Bearer ${studentToken}` },
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  it('should return 404 when publishing a nonexistent quiz', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: `/quizzes/${randomUUID()}/publish`,
+      headers: { authorization: `Bearer ${facultyToken}` },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error.code).toBe('QUIZ_NOT_FOUND');
   });
 
   it('should create a quiz', async () => {
