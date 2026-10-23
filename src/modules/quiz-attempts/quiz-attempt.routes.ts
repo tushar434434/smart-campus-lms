@@ -1,4 +1,3 @@
-
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
@@ -11,9 +10,11 @@ interface AuthenticatedUser {
 
 const uuidSchema = z.string().uuid();
 
-const answerSchema = z.object({
-  selectedOption: z.enum(['A', 'B', 'C', 'D']),
-}).strict();
+const answerSchema = z
+  .object({
+    selectedOption: z.enum(['A', 'B', 'C', 'D']),
+  })
+  .strict();
 
 const knownErrors: Record<string, { status: number; message: string }> = {
   UNAUTHORIZED: {
@@ -202,10 +203,7 @@ export async function quizAttemptRoutes(
           return invalidId(reply, 'Invalid attempt ID');
         }
 
-        const questions = await service.getQuestions(
-          parsedId.data,
-          user.sub,
-        );
+        const questions = await service.getQuestions(parsedId.data, user.sub);
 
         return reply.send({
           success: true,

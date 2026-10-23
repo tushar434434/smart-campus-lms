@@ -84,8 +84,7 @@ describe('PrismaQuizAttemptRepository', () => {
     prisma = {
       ...tx,
       $transaction: vi.fn(
-        async (callback: (transaction: typeof tx) => unknown) =>
-          callback(tx),
+        async (callback: (transaction: typeof tx) => unknown) => callback(tx),
       ),
     };
 
@@ -227,10 +226,7 @@ describe('PrismaQuizAttemptRepository', () => {
       submittedAt,
     });
 
-    const result = await repository.submit(
-      'attempt-1',
-      'auto_submitted',
-    );
+    const result = await repository.submit('attempt-1', 'auto_submitted');
 
     expect(tx.quizAttempt.update).toHaveBeenCalledWith({
       where: { id: 'attempt-1' },
@@ -248,9 +244,7 @@ describe('PrismaQuizAttemptRepository', () => {
   it('returns undefined when the attempt does not exist', async () => {
     tx.quizAttempt.findUnique.mockResolvedValue(null);
 
-    await expect(
-      repository.submit('missing-attempt'),
-    ).resolves.toBeUndefined();
+    await expect(repository.submit('missing-attempt')).resolves.toBeUndefined();
 
     expect(tx.quizAttempt.update).not.toHaveBeenCalled();
   });

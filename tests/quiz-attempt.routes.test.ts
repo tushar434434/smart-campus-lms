@@ -1,4 +1,3 @@
-
 import {
   afterAll,
   beforeAll,
@@ -104,11 +103,9 @@ describe('Quiz attempt routes', () => {
   }
 
   it('rejects requests without a token', async () => {
-    const response = await request(
-      'POST',
-      `/quizzes/${QUIZ_ID}/attempts`,
-      { authenticated: false },
-    );
+    const response = await request('POST', `/quizzes/${QUIZ_ID}/attempts`, {
+      authenticated: false,
+    });
 
     expect(response.statusCode).toBe(401);
     expect(service.start).not.toHaveBeenCalled();
@@ -117,11 +114,9 @@ describe('Quiz attempt routes', () => {
   it.each(['faculty', 'admin'] as const)(
     'rejects the %s role from student attempt routes',
     async (role) => {
-      const response = await request(
-        'POST',
-        `/quizzes/${QUIZ_ID}/attempts`,
-        { role },
-      );
+      const response = await request('POST', `/quizzes/${QUIZ_ID}/attempts`, {
+        role,
+      });
 
       expect(response.statusCode).toBe(403);
       expect(service.start).not.toHaveBeenCalled();
@@ -129,10 +124,7 @@ describe('Quiz attempt routes', () => {
   );
 
   it('rejects an invalid quiz ID', async () => {
-    const response = await request(
-      'POST',
-      '/quizzes/not-a-uuid/attempts',
-    );
+    const response = await request('POST', '/quizzes/not-a-uuid/attempts');
 
     expect(response.statusCode).toBe(400);
     expect(service.start).not.toHaveBeenCalled();
@@ -141,10 +133,7 @@ describe('Quiz attempt routes', () => {
   it('starts a quiz attempt', async () => {
     service.start.mockResolvedValue(makeAttempt());
 
-    const response = await request(
-      'POST',
-      `/quizzes/${QUIZ_ID}/attempts`,
-    );
+    const response = await request('POST', `/quizzes/${QUIZ_ID}/attempts`);
 
     expect(response.statusCode).toBe(201);
     expect(response.json().success).toBe(true);
@@ -165,20 +154,14 @@ describe('Quiz attempt routes', () => {
       },
     ]);
 
-    const response = await request(
-      'GET',
-      `/attempts/${ATTEMPT_ID}/questions`,
-    );
+    const response = await request('GET', `/attempts/${ATTEMPT_ID}/questions`);
 
     expect(response.statusCode).toBe(200);
 
     const body = response.json();
 
     expect(body.data[0]).not.toHaveProperty('correctOption');
-    expect(service.getQuestions).toHaveBeenCalledWith(
-      ATTEMPT_ID,
-      STUDENT_ID,
-    );
+    expect(service.getQuestions).toHaveBeenCalledWith(ATTEMPT_ID, STUDENT_ID);
   });
 
   it('rejects invalid answer options', async () => {
@@ -222,27 +205,18 @@ describe('Quiz attempt routes', () => {
       }),
     );
 
-    const response = await request(
-      'POST',
-      `/attempts/${ATTEMPT_ID}/submit`,
-    );
+    const response = await request('POST', `/attempts/${ATTEMPT_ID}/submit`);
 
     expect(response.statusCode).toBe(200);
     expect(response.json().data.status).toBe('submitted');
     expect(response.json().data.score).toBe(8);
-    expect(service.submit).toHaveBeenCalledWith(
-      ATTEMPT_ID,
-      STUDENT_ID,
-    );
+    expect(service.submit).toHaveBeenCalledWith(ATTEMPT_ID, STUDENT_ID);
   });
 
   it('maps an attempt ownership error to 403', async () => {
     service.getQuestions.mockRejectedValue(new Error('FORBIDDEN'));
 
-    const response = await request(
-      'GET',
-      `/attempts/${ATTEMPT_ID}/questions`,
-    );
+    const response = await request('GET', `/attempts/${ATTEMPT_ID}/questions`);
 
     expect(response.statusCode).toBe(403);
     expect(response.json().error.code).toBe('FORBIDDEN');
