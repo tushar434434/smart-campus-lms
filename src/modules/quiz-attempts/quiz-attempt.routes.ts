@@ -1,5 +1,7 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+
 import type { QuizAttemptService } from './quiz-attempt.service.js';
 
 interface AuthenticatedUser {
@@ -7,13 +9,69 @@ interface AuthenticatedUser {
   role: 'student' | 'faculty' | 'admin';
 }
 
+const uuidSchema = z.string().uuid();
+
+const answerSchema = z.object({
+  selectedOption: z.enum(['A', 'B', 'C', 'D']),
+}).strict();
+
+const knownErrors: Record<string, { status: number; message: string }> = {
+  UNAUTHORIZED: {
+    status: 401,
+    message: 'Authentication required',
+  },
+  QUIZ_NOT_FOUND: {
+    status: 404,
+    message: 'Quiz not found',
+  },
+  QUIZ_NOT_AVAILABLE: {
+    status: 403,
+    message: 'Quiz is not available',
+  },
+  QUIZ_NOT_STARTED: {
+    status: 403,
+    message: 'Quiz has not started',
+  },
+  QUIZ_ENDED: {
+    status: 403,
+    message: 'Quiz has ended',
+  },
+  NOT_ENROLLED: {
+    status: 403,
+    message: 'You are not enrolled in this course',
+  },
+  MAX_ATTEMPTS_REACHED: {
+    status: 409,
+    message: 'Maximum attempts reached',
+  },
+  ATTEMPT_NOT_FOUND: {
+    status: 404,
+    message: 'Attempt not found',
+  },
+  ATTEMPT_ALREADY_SUBMITTED: {
+    status: 409,
+    message: 'Attempt is no longer active',
+  },
+  QUESTION_NOT_FOUND: {
+    status: 404,
+    message: 'Question not found',
+  },
+  QUIZ_TIME_EXPIRED: {
+    status: 409,
+    message: 'Quiz time has expired',
+  },
+  FORBIDDEN: {
+    status: 403,
+    message: 'Access denied',
+  },
+};
+
 function parseUser(payload: unknown): AuthenticatedUser | undefined {
-  if (
-    typeof payload !== 'object' ||
-    payload === null ||
-    !('sub' in payload) ||
-    !('role' in payload)
-  ) {
+  if (typeof payload !== 'object' || payload === null) {
+    return undefined;
+  }
+
+  if (!('sub' in payload) || !('role' in payload)) {
     return undefined;
   }
 
@@ -21,7 +79,9 @@ function parseUser(payload: unknown): AuthenticatedUser | undefined {
 
   if (
     typeof sub !== 'string' ||
-    !['student', 'faculty', 'admin'].includes(String(role))
+    sub.trim().length === 0 ||
+    typeof role !== 'string' ||
+    !['student', 'faculty', 'admin'].includes(role)
   ) {
     return undefined;
   }
@@ -35,7 +95,14 @@ function parseUser(payload: unknown): AuthenticatedUser | undefined {
 async function authenticate(
   request: FastifyRequest,
 ): Promise<AuthenticatedUser> {
-  const payload: unknown = await request.jwtVerify();
+  let payload: unknown;
+
+  try {
+    payload = await request.jwtVerify();
+  } catch {
+    throw new Error('UNAUTHORIZED');
+  }
+
   const user = parseUser(payload);
 
   if (!user) {
@@ -51,43 +118,13 @@ function requireStudent(user: AuthenticatedUser): void {
   }
 }
 
-function sendError(
-  error: unknown,
-  reply: {
-    code: (statusCode: number) => {
-      send: (payload: unknown) => unknown;
-    };
-  },
-) {
+function sendError(error: unknown, reply: FastifyReply) {
   const code = error instanceof Error ? error.message : 'INTERNAL_ERROR';
-
-  const knownErrors: Record<string, { status: number; message: string }> = {
-    UNAUTHORIZED: { status: 401, message: 'Authentication required' },
-    QUIZ_NOT_FOUND: { status: 404, message: 'Quiz not found' },
-    QUIZ_NOT_AVAILABLE: { status: 403, message: 'Quiz is not available' },
-    QUIZ_NOT_STARTED: { status: 403, message: 'Quiz has not started' },
-    QUIZ_ENDED: { status: 403, message: 'Quiz has ended' },
-    NOT_ENROLLED: {
-      status: 403,
-      message: 'You are not enrolled in this course',
-    },
-    MAX_ATTEMPTS_REACHED: {
-      status: 409,
-      message: 'Maximum attempts reached',
-    },
-    ATTEMPT_NOT_FOUND: { status: 404, message: 'Attempt not found' },
-    ATTEMPT_ALREADY_SUBMITTED: {
-      status: 409,
-      message: 'Attempt is no longer active',
-    },
-    QUESTION_NOT_FOUND: { status: 404, message: 'Question not found' },
-    QUIZ_TIME_EXPIRED: { status: 409, message: 'Quiz time has expired' },
-    FORBIDDEN: { status: 403, message: 'Access denied' },
-  };
-
   const known = knownErrors[code];
 
   if (!known) {
+    requestSafeLog(reply, error);
+
     return reply.code(500).send({
       success: false,
       error: {
@@ -99,20 +136,32 @@ function sendError(
 
   return reply.code(known.status).send({
     success: false,
-    error: { code, message: known.message },
+    error: {
+      code,
+      message: known.message,
+    },
   });
 }
 
-const uuidSchema = z.string().uuid();
+function requestSafeLog(reply: FastifyReply, error: unknown): void {
+  // Log server-side details without exposing them in the API response.
+  reply.log.error({ err: error }, 'Quiz attempt request failed');
+}
 
-const answerSchema = z.object({
-  selectedOption: z.enum(['A', 'B', 'C', 'D']),
-});
+function invalidId(reply: FastifyReply, message: string) {
+  return reply.code(400).send({
+    success: false,
+    error: {
+      code: 'INVALID_ID',
+      message,
+    },
+  });
+}
 
 export async function quizAttemptRoutes(
   app: FastifyInstance,
   service: QuizAttemptService,
-) {
+): Promise<void> {
   // Start a quiz attempt.
   app.post<{ Params: { id: string } }>(
     '/quizzes/:id/attempts',
@@ -121,18 +170,18 @@ export async function quizAttemptRoutes(
         const user = await authenticate(request);
         requireStudent(user);
 
-        const id = uuidSchema.safeParse(request.params.id);
+        const parsedId = uuidSchema.safeParse(request.params.id);
 
-        if (!id.success) {
-          return reply.code(400).send({
-            success: false,
-            error: { code: 'INVALID_ID', message: 'Invalid quiz ID' },
-          });
+        if (!parsedId.success) {
+          return invalidId(reply, 'Invalid quiz ID');
         }
 
-        const attempt = await service.start(id.data, user.sub);
+        const attempt = await service.start(parsedId.data, user.sub);
 
-        return reply.code(201).send({ success: true, data: attempt });
+        return reply.code(201).send({
+          success: true,
+          data: attempt,
+        });
       } catch (error) {
         return sendError(error, reply);
       }
@@ -147,18 +196,21 @@ export async function quizAttemptRoutes(
         const user = await authenticate(request);
         requireStudent(user);
 
-        const id = uuidSchema.safeParse(request.params.attemptId);
+        const parsedId = uuidSchema.safeParse(request.params.attemptId);
 
-        if (!id.success) {
-          return reply.code(400).send({
-            success: false,
-            error: { code: 'INVALID_ID', message: 'Invalid attempt ID' },
-          });
+        if (!parsedId.success) {
+          return invalidId(reply, 'Invalid attempt ID');
         }
 
-        const questions = await service.getQuestions(id.data, user.sub);
+        const questions = await service.getQuestions(
+          parsedId.data,
+          user.sub,
+        );
 
-        return reply.send({ success: true, data: questions });
+        return reply.send({
+          success: true,
+          data: questions,
+        });
       } catch (error) {
         return sendError(error, reply);
       }
@@ -178,12 +230,16 @@ export async function quizAttemptRoutes(
       const questionId = uuidSchema.safeParse(request.params.questionId);
       const body = answerSchema.safeParse(request.body);
 
-      if (!attemptId.success || !questionId.success || !body.success) {
+      if (!attemptId.success || !questionId.success) {
+        return invalidId(reply, 'Invalid attempt ID or question ID');
+      }
+
+      if (!body.success) {
         return reply.code(400).send({
           success: false,
           error: {
             code: 'VALIDATION_ERROR',
-            message: 'Invalid IDs or answer option',
+            message: 'selectedOption must be A, B, C, or D',
           },
         });
       }
@@ -197,13 +253,16 @@ export async function quizAttemptRoutes(
         user.sub,
       );
 
-      return reply.send({ success: true, message: 'Answer saved' });
+      return reply.send({
+        success: true,
+        message: 'Answer saved',
+      });
     } catch (error) {
       return sendError(error, reply);
     }
   });
 
-  // Submit an attempt.
+  // Submit an attempt and return its final result.
   app.post<{ Params: { attemptId: string } }>(
     '/attempts/:attemptId/submit',
     async (request, reply) => {
@@ -211,18 +270,18 @@ export async function quizAttemptRoutes(
         const user = await authenticate(request);
         requireStudent(user);
 
-        const id = uuidSchema.safeParse(request.params.attemptId);
+        const parsedId = uuidSchema.safeParse(request.params.attemptId);
 
-        if (!id.success) {
-          return reply.code(400).send({
-            success: false,
-            error: { code: 'INVALID_ID', message: 'Invalid attempt ID' },
-          });
+        if (!parsedId.success) {
+          return invalidId(reply, 'Invalid attempt ID');
         }
 
-        const attempt = await service.submit(id.data, user.sub);
+        const attempt = await service.submit(parsedId.data, user.sub);
 
-        return reply.send({ success: true, data: attempt });
+        return reply.send({
+          success: true,
+          data: attempt,
+        });
       } catch (error) {
         return sendError(error, reply);
       }
