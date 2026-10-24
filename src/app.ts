@@ -1,3 +1,4 @@
+
 import Fastify from 'fastify';
 import jwt from '@fastify/jwt';
 import swagger from '@fastify/swagger';
@@ -19,6 +20,7 @@ import { quizAttemptRoutes } from './modules/quiz-attempts/quiz-attempt.routes.j
 
 type AppContainer = Pick<
   ReturnType<typeof createContainer>,
+  | 'prisma'
   | 'courseService'
   | 'studentService'
   | 'enrollmentService'
@@ -132,6 +134,7 @@ export function buildApp(container: AppContainer) {
 
   // Dependency container
   const {
+    prisma,
     courseService,
     studentService,
     enrollmentService,
@@ -142,23 +145,40 @@ export function buildApp(container: AppContainer) {
     quizAttemptService,
   } = container;
 
-  // Health check
+  // Health check: API and database connectivity
   app.get(
     '/health',
     {
       schema: {
         tags: ['Health'],
-        summary: 'Check API health',
+        summary: 'Check API and database health',
       },
     },
-    async () => ({
-      success: true,
-      message: 'Service is healthy',
-      data: {
-        service: 'smart-campus-lms',
-        status: 'ok',
-      },
-    }),
+    async (_request, reply) => {
+      try {
+        await prisma.$queryRaw`SELECT 1`;
+
+        return reply.code(200).send({
+          success: true,
+          message: 'Service is healthy',
+          data: {
+            service: 'smart-campus-lms',
+            status: 'ok',
+            database: 'connected',
+          },
+        });
+      } catch {
+        return reply.code(503).send({
+          success: false,
+          message: 'Service is unavailable',
+          data: {
+            service: 'smart-campus-lms',
+            status: 'unavailable',
+            database: 'disconnected',
+          },
+        });
+      }
+    },
   );
 
   // Course routes

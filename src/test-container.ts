@@ -1,3 +1,4 @@
+
 import { InMemoryAssignmentRepository } from './modules/assignments/assignment.repository.js';
 import { createAssignmentService } from './modules/assignments/assignment.service.js';
 
@@ -23,6 +24,13 @@ import { InMemorySubmissionRepository } from './modules/submissions/submission.r
 import { createSubmissionService } from './modules/submissions/submission.service.js';
 
 export function createTestContainer() {
+  // Mock Prisma client for health-check tests.
+  // This avoids requiring a real database in unit/integration tests.
+  const prisma = {
+    $queryRaw: async () => [{ '?column?': 1 }],
+    $disconnect: async () => undefined,
+  };
+
   // Repositories
   const courseRepository = new InMemoryCourseRepository();
   const studentRepository = new InMemoryStudentRepository();
@@ -69,6 +77,8 @@ export function createTestContainer() {
   );
 
   return {
+    prisma,
+
     courseRepository,
     courseService,
 
