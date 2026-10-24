@@ -1,3 +1,4 @@
+
 import { AppError } from '../../errors/app-error.js';
 
 import type { AuthRepository } from '../auth/auth.repository.interface.js';
@@ -9,7 +10,6 @@ import type {
 } from './student.schema.js';
 
 import { InMemoryStudentRepository } from './student.repository.js';
-
 import type { StudentRepository } from './student.repository.interface.js';
 
 export function createStudentService(
@@ -118,6 +118,20 @@ export function createStudentService(
 
       if (!student) {
         throw new AppError('Student not found', 404, 'STUDENT_NOT_FOUND');
+      }
+
+      return student;
+    },
+
+    async getStudentByUserId(userId: string) {
+      const student = await repository.findByUserId(userId);
+
+      if (!student) {
+        throw new AppError(
+          'Student account is not linked to a student record',
+          403,
+          'FORBIDDEN',
+        );
       }
 
       return student;

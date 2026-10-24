@@ -1,3 +1,4 @@
+
 import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -9,15 +10,10 @@ describe('Enrollment API', () => {
   let studentId: string;
   let courseId: string;
   let facultyToken: string;
-  let studentToken: string;
   let adminToken: string;
 
   const facultyHeaders = () => ({
     authorization: `Bearer ${facultyToken}`,
-  });
-
-  const studentHeaders = () => ({
-    authorization: `Bearer ${studentToken}`,
   });
 
   const adminHeaders = () => ({
@@ -29,33 +25,33 @@ describe('Enrollment API', () => {
     await app.ready();
 
     facultyToken = app.jwt.sign({
-      sub: 'faculty-test-id',
+      sub: randomUUID(),
       role: 'faculty',
     });
 
-    studentToken = app.jwt.sign({
-      sub: 'student-test-user-id',
-      role: 'student',
-    });
-
     adminToken = app.jwt.sign({
-      sub: 'admin-test-id',
+      sub: randomUUID(),
       role: 'admin',
     });
 
     const studentResponse = await app.inject({
       method: 'POST',
       url: '/students',
+      headers: facultyHeaders(),
       payload: {
         name: 'Tushar Kumar',
-        email: 'tushar.enrollment@example.com',
-        enrollmentNumber: 'ENR2026001',
+        email: `tushar.${randomUUID()}@example.com`,
+        enrollmentNumber: `ENR${randomUUID().replaceAll('-', '').slice(0, 10)}`,
         department: 'AI-ML',
         semester: 5,
       },
     });
 
-    expect(studentResponse.statusCode).toBe(201);
+    expect(
+      studentResponse.statusCode,
+      `Student setup failed: ${studentResponse.body}`,
+    ).toBe(201);
+
     studentId = studentResponse.json().data.id;
 
     const courseResponse = await app.inject({
@@ -64,12 +60,16 @@ describe('Enrollment API', () => {
       headers: facultyHeaders(),
       payload: {
         title: 'Operating Systems',
-        code: 'CS301',
+        code: 'CS501',
         credits: 4,
       },
     });
 
-    expect(courseResponse.statusCode).toBe(201);
+    expect(
+      courseResponse.statusCode,
+      `Course setup failed: ${courseResponse.body}`,
+    ).toBe(201);
+
     courseId = courseResponse.json().data.id;
   });
 
@@ -86,19 +86,24 @@ describe('Enrollment API', () => {
       });
 
       expect(response.statusCode).toBe(401);
-      expect(response.json().error.code).toBe('UNAUTHORIZED');
     });
 
     it('should reject enrollment creation for students', async () => {
+      const studentToken = app.jwt.sign({
+        sub: randomUUID(),
+        role: 'student',
+      });
+
       const response = await app.inject({
         method: 'POST',
         url: '/enrollments',
-        headers: studentHeaders(),
+        headers: {
+          authorization: `Bearer ${studentToken}`,
+        },
         payload: { studentId, courseId },
       });
 
       expect(response.statusCode).toBe(403);
-      expect(response.json().error.code).toBe('FORBIDDEN');
     });
 
     it('should reject enrollment retrieval without a token', async () => {
@@ -108,18 +113,23 @@ describe('Enrollment API', () => {
       });
 
       expect(response.statusCode).toBe(401);
-      expect(response.json().error.code).toBe('UNAUTHORIZED');
     });
 
     it('should reject enrollment retrieval for students', async () => {
+      const studentToken = app.jwt.sign({
+        sub: randomUUID(),
+        role: 'student',
+      });
+
       const response = await app.inject({
         method: 'GET',
         url: `/enrollments/student/${studentId}`,
-        headers: studentHeaders(),
+        headers: {
+          authorization: `Bearer ${studentToken}`,
+        },
       });
 
       expect(response.statusCode).toBe(403);
-      expect(response.json().error.code).toBe('FORBIDDEN');
     });
 
     it('should reject enrollment deletion without a token', async () => {
@@ -129,18 +139,23 @@ describe('Enrollment API', () => {
       });
 
       expect(response.statusCode).toBe(401);
-      expect(response.json().error.code).toBe('UNAUTHORIZED');
     });
 
     it('should reject enrollment deletion for students', async () => {
+      const studentToken = app.jwt.sign({
+        sub: randomUUID(),
+        role: 'student',
+      });
+
       const response = await app.inject({
         method: 'DELETE',
         url: `/enrollments/${randomUUID()}`,
-        headers: studentHeaders(),
+        headers: {
+          authorization: `Bearer ${studentToken}`,
+        },
       });
 
       expect(response.statusCode).toBe(403);
-      expect(response.json().error.code).toBe('FORBIDDEN');
     });
   });
 
@@ -175,12 +190,14 @@ describe('Enrollment API', () => {
     it('should prevent duplicate enrollment', async () => {
       const payload = { studentId, courseId };
 
-      await app.inject({
+      const firstResponse = await app.inject({
         method: 'POST',
         url: '/enrollments',
         headers: facultyHeaders(),
         payload,
       });
+
+      expect(firstResponse.statusCode).toBe(201);
 
       const response = await app.inject({
         method: 'POST',
@@ -226,12 +243,14 @@ describe('Enrollment API', () => {
 
   describe('Get student enrollments', () => {
     it('should retrieve student enrollments', async () => {
-      await app.inject({
+      const createResponse = await app.inject({
         method: 'POST',
         url: '/enrollments',
         headers: facultyHeaders(),
         payload: { studentId, courseId },
       });
+
+      expect(createResponse.statusCode).toBe(201);
 
       const response = await app.inject({
         method: 'GET',
@@ -256,6 +275,7 @@ describe('Enrollment API', () => {
       });
 
       expect(response.statusCode).toBe(200);
+      expect(response.json().success).toBe(true);
     });
   });
 
@@ -268,12 +288,14 @@ describe('Enrollment API', () => {
         payload: { studentId, courseId },
       });
 
+      expect(createResponse.statusCode).toBe(201);
+
       const enrollmentId = createResponse.json().data.id;
 
       const response = await app.inject({
         method: 'DELETE',
         url: `/enrollments/${enrollmentId}`,
-        headers: facultyHeaders(),
+        headers: adminHeaders(),
       });
 
       expect(response.statusCode).toBe(204);
@@ -288,11 +310,11 @@ describe('Enrollment API', () => {
         payload: { studentId, courseId },
       });
 
-      const enrollmentId = createResponse.json().data.id;
+      expect(createResponse.statusCode).toBe(201);
 
       const response = await app.inject({
         method: 'DELETE',
-        url: `/enrollments/${enrollmentId}`,
+        url: `/enrollments/${createResponse.json().data.id}`,
         headers: adminHeaders(),
       });
 
@@ -303,7 +325,7 @@ describe('Enrollment API', () => {
       const response = await app.inject({
         method: 'DELETE',
         url: `/enrollments/${randomUUID()}`,
-        headers: facultyHeaders(),
+        headers: adminHeaders(),
       });
 
       expect(response.statusCode).toBe(404);

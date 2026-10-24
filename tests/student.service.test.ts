@@ -1,4 +1,6 @@
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { createStudentService } from '../src/modules/students/student.service.js';
 import type { StudentRepository } from '../src/modules/students/student.repository.interface.js';
 import type { AuthRepository } from '../src/modules/auth/auth.repository.interface.js';
