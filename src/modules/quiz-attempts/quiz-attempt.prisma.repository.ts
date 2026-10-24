@@ -1,4 +1,5 @@
-import { PrismaClient } from '../../generated/prisma/client.js';
+import { Prisma, PrismaClient } from '../../generated/prisma/client.js';
+
 import type {
   QuizAttempt,
   QuizAttemptRepository,
@@ -12,47 +13,73 @@ export class PrismaQuizAttemptRepository implements QuizAttemptRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   async start(quizId: string, studentId: string): Promise<QuizAttempt> {
-    return this.prisma.$transaction(async (tx) => {
-      const quiz = await tx.quiz.findUnique({
-        where: { id: quizId },
-        select: {
-          id: true,
-          courseId: true,
-          status: true,
-        },
-      });
-
-      if (!quiz) {
-        throw new Error('QUIZ_NOT_FOUND');
-      }
-
-      if (quiz.status !== 'published') {
-        throw new Error('QUIZ_NOT_PUBLISHED');
-      }
-
-      const enrollment = await tx.enrollment.findUnique({
-        where: {
-          studentId_courseId: {
-            studentId,
-            courseId: quiz.courseId,
+    return this.prisma.$transaction(
+      async (tx) => {
+        const quiz = await tx.quiz.findUnique({
+          where: { id: quizId },
+          select: {
+            id: true,
+            courseId: true,
+            status: true,
+            maxAttempts: true,
           },
-        },
-      });
+        });
 
-      if (!enrollment) {
-        throw new Error('STUDENT_NOT_ENROLLED');
-      }
+        if (!quiz) {
+          throw new Error('QUIZ_NOT_FOUND');
+        }
 
-      const attempt = await tx.quizAttempt.create({
-        data: {
-          quizId,
-          studentId,
-          status: 'in_progress',
-        },
-      });
+        if (quiz.status !== 'published') {
+          throw new Error('QUIZ_NOT_PUBLISHED');
+        }
 
-      return this.toQuizAttempt(attempt);
-    });
+        const enrollment = await tx.enrollment.findUnique({
+          where: {
+            studentId_courseId: {
+              studentId,
+              courseId: quiz.courseId,
+            },
+          },
+        });
+
+        if (!enrollment) {
+          throw new Error('STUDENT_NOT_ENROLLED');
+        }
+
+        // Serialize attempt creation for this quiz by taking a row lock
+        // on the quiz record before counting existing attempts.
+        await tx.$queryRaw`
+          SELECT id
+          FROM "Quiz"
+          WHERE id = ${quizId}
+          FOR UPDATE
+        `;
+
+        const attemptCount = await tx.quizAttempt.count({
+          where: {
+            quizId,
+            studentId,
+          },
+        });
+
+        if (attemptCount >= quiz.maxAttempts) {
+          throw new Error('MAX_ATTEMPTS_REACHED');
+        }
+
+        const attempt = await tx.quizAttempt.create({
+          data: {
+            quizId,
+            studentId,
+            status: 'in_progress',
+          },
+        });
+
+        return this.toQuizAttempt(attempt);
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+      },
+    );
   }
 
   async findById(id: string): Promise<QuizAttempt | undefined> {
@@ -61,6 +88,18 @@ export class PrismaQuizAttemptRepository implements QuizAttemptRepository {
     });
 
     return attempt ? this.toQuizAttempt(attempt) : undefined;
+  }
+
+  async countByQuizAndStudent(
+    quizId: string,
+    studentId: string,
+  ): Promise<number> {
+    return this.prisma.quizAttempt.count({
+      where: {
+        quizId,
+        studentId,
+      },
+    });
   }
 
   async findQuestions(quizId: string): Promise<QuizQuestionForAttempt[]> {

@@ -46,6 +46,8 @@ export interface QuizAttemptRepository {
 
   findById(id: string): Promise<QuizAttempt | undefined>;
 
+  countByQuizAndStudent(quizId: string, studentId: string): Promise<number>;
+
   findQuestions(quizId: string): Promise<QuizQuestionForAttempt[]>;
 
   saveAnswer(input: QuizAnswerInput): Promise<void>;

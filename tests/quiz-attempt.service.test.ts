@@ -1,4 +1,3 @@
-
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { QuizAttemptService } from '../src/modules/quiz-attempts/quiz-attempt.service.js';
 
@@ -52,8 +51,9 @@ describe('QuizAttemptService', () => {
 
   beforeEach(() => {
     attempts = {
-      start: vi.fn(),
+      start: vi.fn().mockResolvedValue(attempt),
       findById: vi.fn(),
+      countByQuizAndStudent: vi.fn().mockResolvedValue(0),
       findQuestions: vi.fn(),
       saveAnswer: vi.fn(),
       findAnswersByAttemptId: vi.fn().mockResolvedValue([]),
@@ -65,22 +65,47 @@ describe('QuizAttemptService', () => {
     } as unknown as QuizRepository;
 
     enrollments = {
-      findByStudentAndCourse: vi
-        .fn()
-        .mockResolvedValue({ id: 'enrollment-1' }),
+      findByStudentAndCourse: vi.fn().mockResolvedValue({ id: 'enrollment-1' }),
     } as unknown as EnrollmentRepository;
 
     service = new QuizAttemptService(attempts, quizzes, enrollments);
   });
 
-  it('rejects a student who is not enrolled', async () => {
-    vi.mocked(enrollments.findByStudentAndCourse).mockResolvedValue(undefined);
+  describe('start', () => {
+    it('starts an attempt when the student is below the attempt limit', async () => {
+      vi.mocked(attempts.countByQuizAndStudent).mockResolvedValue(1);
 
-    await expect(service.start(quizId, studentId)).rejects.toThrow(
-      'NOT_ENROLLED',
-    );
+      await expect(service.start(quizId, studentId)).resolves.toEqual(attempt);
 
-    expect(attempts.start).not.toHaveBeenCalled();
+      expect(attempts.countByQuizAndStudent).toHaveBeenCalledWith(
+        quizId,
+        studentId,
+      );
+      expect(attempts.start).toHaveBeenCalledWith(quizId, studentId);
+    });
+
+    it('rejects starting an attempt when the limit has been reached', async () => {
+      vi.mocked(attempts.countByQuizAndStudent).mockResolvedValue(2);
+
+      await expect(service.start(quizId, studentId)).rejects.toThrow(
+        'MAX_ATTEMPTS_REACHED',
+      );
+
+      expect(attempts.start).not.toHaveBeenCalled();
+    });
+
+    it('rejects a student who is not enrolled', async () => {
+      vi.mocked(enrollments.findByStudentAndCourse).mockResolvedValue(
+        undefined,
+      );
+
+      await expect(service.start(quizId, studentId)).rejects.toThrow(
+        'NOT_ENROLLED',
+      );
+
+      expect(attempts.countByQuizAndStudent).not.toHaveBeenCalled();
+      expect(attempts.start).not.toHaveBeenCalled();
+    });
   });
 
   it('prevents a student from accessing another student’s attempt', async () => {
@@ -133,10 +158,7 @@ describe('QuizAttemptService', () => {
       'QUIZ_TIME_EXPIRED',
     );
 
-    expect(attempts.submit).toHaveBeenCalledWith(
-      attemptId,
-      'auto_submitted',
-    );
+    expect(attempts.submit).toHaveBeenCalledWith(attemptId, 'auto_submitted');
 
     expect(attempts.findQuestions).not.toHaveBeenCalled();
   });
@@ -159,10 +181,7 @@ describe('QuizAttemptService', () => {
     expect(result.status).toBe('auto_submitted');
     expect(result.score).toBeNull();
 
-    expect(attempts.submit).toHaveBeenCalledWith(
-      attemptId,
-      'auto_submitted',
-    );
+    expect(attempts.submit).toHaveBeenCalledWith(attemptId, 'auto_submitted');
   });
 
   it('hides the score when results have not been released', async () => {

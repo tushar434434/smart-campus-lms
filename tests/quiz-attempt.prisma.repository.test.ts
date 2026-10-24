@@ -41,10 +41,12 @@ describe('PrismaQuizAttemptRepository', () => {
   };
 
   let tx: {
+    $queryRaw: ReturnType<typeof vi.fn>;
     quiz: { findUnique: ReturnType<typeof vi.fn> };
     enrollment: { findUnique: ReturnType<typeof vi.fn> };
     quizAttempt: {
       create: ReturnType<typeof vi.fn>;
+      count: ReturnType<typeof vi.fn>;
       findUnique: ReturnType<typeof vi.fn>;
       update: ReturnType<typeof vi.fn>;
     };
@@ -64,10 +66,12 @@ describe('PrismaQuizAttemptRepository', () => {
 
   beforeEach(() => {
     tx = {
+      $queryRaw: vi.fn().mockResolvedValue([{ id: 'quiz-1' }]),
       quiz: { findUnique: vi.fn() },
       enrollment: { findUnique: vi.fn() },
       quizAttempt: {
         create: vi.fn(),
+        count: vi.fn(),
         findUnique: vi.fn(),
         update: vi.fn(),
       },
@@ -91,8 +95,117 @@ describe('PrismaQuizAttemptRepository', () => {
     repository = new PrismaQuizAttemptRepository(prisma as never);
   });
 
+  describe('start', () => {
+    beforeEach(() => {
+      tx.quiz.findUnique.mockResolvedValue({
+        id: 'quiz-1',
+        courseId: 'course-1',
+        status: 'published',
+        maxAttempts: 2,
+      });
+
+      tx.enrollment.findUnique.mockResolvedValue({
+        studentId: 'student-1',
+        courseId: 'course-1',
+      });
+
+      tx.quizAttempt.count.mockResolvedValue(0);
+      tx.quizAttempt.create.mockResolvedValue(attempt);
+    });
+
+    it('starts an attempt when the student is below the attempt limit', async () => {
+      tx.quizAttempt.count.mockResolvedValue(1);
+
+      await expect(
+        repository.start('quiz-1', 'student-1'),
+      ).resolves.toMatchObject({
+        id: 'attempt-1',
+        quizId: 'quiz-1',
+        studentId: 'student-1',
+        status: 'in_progress',
+      });
+
+      expect(tx.quizAttempt.count).toHaveBeenCalledWith({
+        where: {
+          quizId: 'quiz-1',
+          studentId: 'student-1',
+        },
+      });
+
+      expect(tx.quizAttempt.create).toHaveBeenCalledWith({
+        data: {
+          quizId: 'quiz-1',
+          studentId: 'student-1',
+          status: 'in_progress',
+        },
+      });
+    });
+
+    it('rejects when the student has reached the attempt limit', async () => {
+      tx.quizAttempt.count.mockResolvedValue(2);
+
+      await expect(repository.start('quiz-1', 'student-1')).rejects.toThrow(
+        'MAX_ATTEMPTS_REACHED',
+      );
+
+      expect(tx.quizAttempt.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects when the student is not enrolled', async () => {
+      tx.enrollment.findUnique.mockResolvedValue(null);
+
+      await expect(repository.start('quiz-1', 'student-1')).rejects.toThrow(
+        'STUDENT_NOT_ENROLLED',
+      );
+
+      expect(tx.quizAttempt.count).not.toHaveBeenCalled();
+      expect(tx.quizAttempt.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects when the quiz does not exist', async () => {
+      tx.quiz.findUnique.mockResolvedValue(null);
+
+      await expect(repository.start('quiz-1', 'student-1')).rejects.toThrow(
+        'QUIZ_NOT_FOUND',
+      );
+
+      expect(tx.quizAttempt.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects when the quiz is not published', async () => {
+      tx.quiz.findUnique.mockResolvedValue({
+        id: 'quiz-1',
+        courseId: 'course-1',
+        status: 'draft',
+        maxAttempts: 2,
+      });
+
+      await expect(repository.start('quiz-1', 'student-1')).rejects.toThrow(
+        'QUIZ_NOT_PUBLISHED',
+      );
+
+      expect(tx.quizAttempt.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('countByQuizAndStudent', () => {
+    it('counts attempts for a specific quiz and student', async () => {
+      tx.quizAttempt.count.mockResolvedValue(2);
+
+      await expect(
+        repository.countByQuizAndStudent('quiz-1', 'student-1'),
+      ).resolves.toBe(2);
+
+      expect(tx.quizAttempt.count).toHaveBeenCalledWith({
+        where: {
+          quizId: 'quiz-1',
+          studentId: 'student-1',
+        },
+      });
+    });
+  });
+
   it('returns questions without exposing correctOption', async () => {
-    // Mock only the fields that students are allowed to see.
     tx.quizQuestion.findMany.mockResolvedValue([publicQuestion]);
 
     const result = await repository.findQuestions('quiz-1');

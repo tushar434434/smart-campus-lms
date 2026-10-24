@@ -43,6 +43,15 @@ export class QuizAttemptService {
       throw new Error('NOT_ENROLLED');
     }
 
+    const attemptCount = await this.attemptRepository.countByQuizAndStudent(
+      quizId,
+      studentId,
+    );
+
+    if (attemptCount >= quiz.maxAttempts) {
+      throw new Error('MAX_ATTEMPTS_REACHED');
+    }
+
     return this.attemptRepository.start(quizId, studentId);
   }
 
@@ -113,10 +122,7 @@ export class QuizAttemptService {
     const canViewMarks = quiz.resultsReleasedAt !== null && quiz.showMarks;
 
     if (!canViewMarks) {
-      return {
-        ...attempt,
-        score: null,
-      };
+      return { ...attempt, score: null };
     }
 
     return attempt;
@@ -160,7 +166,6 @@ export class QuizAttemptService {
   private async ensureWithinDuration(attempt: QuizAttempt): Promise<void> {
     if (await this.isExpired(attempt)) {
       await this.attemptRepository.submit(attempt.id, 'auto_submitted');
-
       throw new Error('QUIZ_TIME_EXPIRED');
     }
   }

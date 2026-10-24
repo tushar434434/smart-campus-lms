@@ -38,8 +38,19 @@ export class InMemoryQuizAttemptRepository implements QuizAttemptRepository {
     return attempt ? { ...attempt } : undefined;
   }
 
+  async countByQuizAndStudent(
+    quizId: string,
+    studentId: string,
+  ): Promise<number> {
+    return [...this.attempts.values()].filter(
+      (attempt) => attempt.quizId === quizId && attempt.studentId === studentId,
+    ).length;
+  }
+
   async findQuestions(quizId: string): Promise<QuizQuestionForAttempt[]> {
-    if (!this.quizRepository) return [];
+    if (!this.quizRepository) {
+      return [];
+    }
 
     const questions = await this.quizRepository.findQuestionsByQuizId(quizId);
 
@@ -69,7 +80,9 @@ export class InMemoryQuizAttemptRepository implements QuizAttemptRepository {
   async saveAnswer(input: QuizAnswerInput): Promise<void> {
     const attempt = this.attempts.get(input.attemptId);
 
-    if (!attempt) throw new Error('ATTEMPT_NOT_FOUND');
+    if (!attempt) {
+      throw new Error('ATTEMPT_NOT_FOUND');
+    }
 
     if (attempt.status !== 'in_progress') {
       throw new Error('ATTEMPT_ALREADY_SUBMITTED');
@@ -93,8 +106,13 @@ export class InMemoryQuizAttemptRepository implements QuizAttemptRepository {
   ): Promise<QuizAttemptAnswerResult[]> {
     const attempt = this.attempts.get(attemptId);
 
-    if (!attempt) throw new Error('ATTEMPT_NOT_FOUND');
-    if (!this.quizRepository) return [];
+    if (!attempt) {
+      throw new Error('ATTEMPT_NOT_FOUND');
+    }
+
+    if (!this.quizRepository) {
+      return [];
+    }
 
     const questions = await this.quizRepository.findQuestionsByQuizId(
       attempt.quizId,
@@ -103,7 +121,9 @@ export class InMemoryQuizAttemptRepository implements QuizAttemptRepository {
     return questions.flatMap((question) => {
       const answer = this.answers.get(`${attemptId}:${question.id}`);
 
-      if (!answer) return [];
+      if (!answer) {
+        return [];
+      }
 
       const isCorrect = answer.selectedOption === question.correctOption;
 
@@ -125,8 +145,13 @@ export class InMemoryQuizAttemptRepository implements QuizAttemptRepository {
   ): Promise<QuizAttempt | undefined> {
     const attempt = this.attempts.get(id);
 
-    if (!attempt) return undefined;
-    if (attempt.status !== 'in_progress') return { ...attempt };
+    if (!attempt) {
+      return undefined;
+    }
+
+    if (attempt.status !== 'in_progress') {
+      return { ...attempt };
+    }
 
     let score = 0;
 
