@@ -22,17 +22,35 @@ export function createSubmissionService(
   studentRepository: StudentRepository,
   assignmentRepository: AssignmentRepository,
 ) {
+  async function getOwnedStudentId(user: AuthenticatedUser): Promise<string> {
+    const student = await studentRepository.findByUserId(user.sub);
+
+    if (!student) {
+      throw new AppError(
+        'Student account is not linked to a student record',
+        403,
+        'FORBIDDEN',
+      );
+    }
+
+    return student.id;
+  }
+
   return {
     async createSubmission(
       input: CreateSubmissionInput,
       user: AuthenticatedUser,
     ) {
-      if (user.role === 'student' && user.sub !== input.studentId) {
-        throw new AppError(
-          'Students can only submit work for themselves',
-          403,
-          'FORBIDDEN',
-        );
+      if (user.role === 'student') {
+        const ownedStudentId = await getOwnedStudentId(user);
+
+        if (ownedStudentId !== input.studentId) {
+          throw new AppError(
+            'Students can only submit work for themselves',
+            403,
+            'FORBIDDEN',
+          );
+        }
       }
 
       const student = await studentRepository.findById(input.studentId);
@@ -72,24 +90,32 @@ export function createSubmissionService(
         throw new AppError('Submission not found', 404, 'SUBMISSION_NOT_FOUND');
       }
 
-      if (user.role === 'student' && submission.studentId !== user.sub) {
-        throw new AppError(
-          'You do not have permission to view this submission',
-          403,
-          'FORBIDDEN',
-        );
+      if (user.role === 'student') {
+        const ownedStudentId = await getOwnedStudentId(user);
+
+        if (submission.studentId !== ownedStudentId) {
+          throw new AppError(
+            'You do not have permission to view this submission',
+            403,
+            'FORBIDDEN',
+          );
+        }
       }
 
       return submission;
     },
 
     async getStudentSubmissions(studentId: string, user: AuthenticatedUser) {
-      if (user.role === 'student' && user.sub !== studentId) {
-        throw new AppError(
-          'You do not have permission to view these submissions',
-          403,
-          'FORBIDDEN',
-        );
+      if (user.role === 'student') {
+        const ownedStudentId = await getOwnedStudentId(user);
+
+        if (ownedStudentId !== studentId) {
+          throw new AppError(
+            'You do not have permission to view these submissions',
+            403,
+            'FORBIDDEN',
+          );
+        }
       }
 
       const student = await studentRepository.findById(studentId);
@@ -133,12 +159,16 @@ export function createSubmissionService(
         throw new AppError('Submission not found', 404, 'SUBMISSION_NOT_FOUND');
       }
 
-      if (user.role === 'student' && submission.studentId !== user.sub) {
-        throw new AppError(
-          'You can only update your own submission',
-          403,
-          'FORBIDDEN',
-        );
+      if (user.role === 'student') {
+        const ownedStudentId = await getOwnedStudentId(user);
+
+        if (submission.studentId !== ownedStudentId) {
+          throw new AppError(
+            'You can only update your own submission',
+            403,
+            'FORBIDDEN',
+          );
+        }
       }
 
       const updatedSubmission = await repository.updateContent(

@@ -12,13 +12,15 @@ const mocks = vi.hoisted(() => ({
   updateContent: vi.fn(),
   grade: vi.fn(),
   findStudentById: vi.fn(),
+  findStudentByUserId: vi.fn(),
   findAssignmentById: vi.fn(),
 }));
 
 describe('Submission Service', () => {
   let service: ReturnType<typeof createSubmissionService>;
 
-  const studentUser = { sub: 'student-1', role: 'student' as const };
+  const studentUser = { sub: 'user-1', role: 'student' as const };
+  const otherStudentUser = { sub: 'user-2', role: 'student' as const };
   const facultyUser = { sub: 'faculty-1', role: 'faculty' as const };
 
   const submission = {
@@ -43,6 +45,7 @@ describe('Submission Service', () => {
       } as never,
       {
         findById: mocks.findStudentById,
+        findByUserId: mocks.findStudentByUserId,
       } as never,
       {
         findById: mocks.findAssignmentById,
@@ -57,7 +60,8 @@ describe('Submission Service', () => {
       content: 'My assignment',
     };
 
-    it('allows students to submit their own work', async () => {
+    it('allows students to submit their own work using the linked student record', async () => {
+      mocks.findStudentByUserId.mockResolvedValue({ id: 'student-1' });
       mocks.findStudentById.mockResolvedValue({ id: 'student-1' });
       mocks.findAssignmentById.mockResolvedValue({ id: 'assignment-1' });
       mocks.findByStudentAndAssignment.mockResolvedValue(undefined);
@@ -67,15 +71,31 @@ describe('Submission Service', () => {
         service.createSubmission(input, studentUser),
       ).resolves.toEqual(submission);
 
+      expect(mocks.findStudentByUserId).toHaveBeenCalledWith('user-1');
       expect(mocks.create).toHaveBeenCalledWith(input);
     });
 
     it('rejects students submitting for another student', async () => {
+      mocks.findStudentByUserId.mockResolvedValue({ id: 'student-1' });
+
       await expect(
         service.createSubmission(
           { ...input, studentId: 'student-2' },
           studentUser,
         ),
+      ).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'FORBIDDEN',
+      });
+
+      expect(mocks.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects student accounts that are not linked to a student record', async () => {
+      mocks.findStudentByUserId.mockResolvedValue(undefined);
+
+      await expect(
+        service.createSubmission(input, studentUser),
       ).rejects.toMatchObject({
         statusCode: 403,
         code: 'FORBIDDEN',
@@ -108,6 +128,7 @@ describe('Submission Service', () => {
     });
 
     it('rejects duplicate submissions', async () => {
+      mocks.findStudentByUserId.mockResolvedValue({ id: 'student-1' });
       mocks.findStudentById.mockResolvedValue({ id: 'student-1' });
       mocks.findAssignmentById.mockResolvedValue({ id: 'assignment-1' });
       mocks.findByStudentAndAssignment.mockResolvedValue(submission);
@@ -124,8 +145,9 @@ describe('Submission Service', () => {
   });
 
   describe('getSubmissionById', () => {
-    it('returns an existing submission', async () => {
+    it('returns a submission owned by the authenticated student', async () => {
       mocks.findById.mockResolvedValue(submission);
+      mocks.findStudentByUserId.mockResolvedValue({ id: 'student-1' });
 
       await expect(
         service.getSubmissionById('submission-1', studentUser),
@@ -137,6 +159,7 @@ describe('Submission Service', () => {
         ...submission,
         studentId: 'student-2',
       });
+      mocks.findStudentByUserId.mockResolvedValue({ id: 'student-1' });
 
       await expect(
         service.getSubmissionById('submission-1', studentUser),
@@ -160,6 +183,8 @@ describe('Submission Service', () => {
 
   describe('getStudentSubmissions', () => {
     it('rejects students requesting another student’s submissions', async () => {
+      mocks.findStudentByUserId.mockResolvedValue({ id: 'student-1' });
+
       await expect(
         service.getStudentSubmissions('student-2', studentUser),
       ).rejects.toBeInstanceOf(AppError);
@@ -167,12 +192,22 @@ describe('Submission Service', () => {
       expect(mocks.findStudentById).not.toHaveBeenCalled();
     });
 
-    it('returns submissions for an existing student', async () => {
+    it('returns submissions for the authenticated student’s record', async () => {
+      mocks.findStudentByUserId.mockResolvedValue({ id: 'student-1' });
       mocks.findStudentById.mockResolvedValue({ id: 'student-1' });
       mocks.findByStudentId.mockResolvedValue([submission]);
 
       await expect(
         service.getStudentSubmissions('student-1', studentUser),
+      ).resolves.toEqual([submission]);
+    });
+
+    it('allows faculty to view submissions for an existing student', async () => {
+      mocks.findStudentById.mockResolvedValue({ id: 'student-1' });
+      mocks.findByStudentId.mockResolvedValue([submission]);
+
+      await expect(
+        service.getStudentSubmissions('student-1', facultyUser),
       ).resolves.toEqual([submission]);
     });
   });
@@ -202,6 +237,7 @@ describe('Submission Service', () => {
   describe('updateSubmission', () => {
     it('allows students to update their own submission', async () => {
       mocks.findById.mockResolvedValue(submission);
+      mocks.findStudentByUserId.mockResolvedValue({ id: 'student-1' });
       mocks.updateContent.mockResolvedValue({
         ...submission,
         content: 'Updated content',
@@ -221,6 +257,7 @@ describe('Submission Service', () => {
         ...submission,
         studentId: 'student-2',
       });
+      mocks.findStudentByUserId.mockResolvedValue({ id: 'student-1' });
 
       await expect(
         service.updateSubmission(

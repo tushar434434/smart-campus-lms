@@ -1,111 +1,160 @@
-import { beforeEach, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildApp } from '../src/app.js';
 import { createTestContainer } from '../src/test-container.js';
 
+type Headers = { authorization: string };
+type TestStudent = { id: string };
+type TestUser = { id: string };
+type TestSubmission = {
+  id: string;
+  status: string;
+  content?: string;
+  marks?: number;
+};
+
 describe('Submission Routes', () => {
-  const app = buildApp(createTestContainer());
+  let app: ReturnType<typeof buildApp>;
 
   let studentId: string;
   let otherStudentId: string;
   let courseId: string;
   let assignmentId: string;
 
-  let studentToken: string;
-  let otherStudentToken: string;
-  let facultyToken: string;
-  let adminToken: string;
+  let studentHeaders: Headers;
+  let otherStudentHeaders: Headers;
+  let facultyHeaders: Headers;
+  let adminHeaders: Headers;
 
-  let studentHeaders: { authorization: string };
-  let otherStudentHeaders: { authorization: string };
-  let facultyHeaders: { authorization: string };
-  let adminHeaders: { authorization: string };
+  async function createStudentRecord(name: string): Promise<TestStudent> {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/students',
+      headers: facultyHeaders,
+      payload: {
+        name,
+        email: `${name.toLowerCase().replaceAll(' ', '.')}-${randomUUID()}@example.com`,
+        enrollmentNumber: `EN${randomUUID().replaceAll('-', '').slice(0, 8)}`,
+        department: 'Computer Science',
+        semester: 5,
+      },
+    });
+
+    expect(response.statusCode, `Create student failed: ${response.body}`).toBe(
+      201,
+    );
+
+    return response.json().data as TestStudent;
+  }
+
+  async function createStudentUser(name: string): Promise<TestUser> {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/auth/register',
+      payload: {
+        name,
+        email: `${name.toLowerCase().replaceAll(' ', '.')}-${randomUUID()}@example.com`,
+        password: 'TestPassword123!',
+        role: 'student',
+      },
+    });
+
+    expect(
+      response.statusCode,
+      `Register student user failed: ${response.body}`,
+    ).toBe(201);
+
+    return response.json().data as TestUser;
+  }
+
+  async function linkStudentToUser(
+    studentRecordId: string,
+    userId: string,
+  ): Promise<void> {
+    const response = await app.inject({
+      method: 'PATCH',
+      url: `/students/${studentRecordId}/link-user`,
+      headers: facultyHeaders,
+      payload: { userId },
+    });
+
+    expect(
+      response.statusCode,
+      `Link student user failed: ${response.body}`,
+    ).toBe(200);
+  }
+
+  async function createSubmission(
+    headers: Headers = studentHeaders,
+    content = 'My completed assignment solution',
+    targetStudentId = studentId,
+  ): Promise<TestSubmission> {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/submissions',
+      headers,
+      payload: {
+        studentId: targetStudentId,
+        assignmentId,
+        content,
+      },
+    });
+
+    expect(
+      response.statusCode,
+      `Create submission failed: ${response.body}`,
+    ).toBe(201);
+
+    return response.json().data as TestSubmission;
+  }
 
   beforeEach(async () => {
+    app = buildApp(createTestContainer());
     await app.ready();
 
-    studentToken = app.jwt.sign({
-      sub: 'student-test-id',
-      role: 'student',
-    });
-
-    otherStudentToken = app.jwt.sign({
-      sub: 'other-student-test-id',
-      role: 'student',
-    });
-
-    facultyToken = app.jwt.sign({
-      sub: 'faculty-test-id',
-      role: 'faculty',
-    });
-
-    adminToken = app.jwt.sign({
-      sub: 'admin-test-id',
-      role: 'admin',
-    });
-
-    studentHeaders = {
-      authorization: `Bearer ${studentToken}`,
-    };
-
-    otherStudentHeaders = {
-      authorization: `Bearer ${otherStudentToken}`,
-    };
-
     facultyHeaders = {
-      authorization: `Bearer ${facultyToken}`,
+      authorization: `Bearer ${app.jwt.sign({
+        sub: randomUUID(),
+        role: 'faculty',
+      })}`,
     };
 
     adminHeaders = {
-      authorization: `Bearer ${adminToken}`,
+      authorization: `Bearer ${app.jwt.sign({
+        sub: randomUUID(),
+        role: 'admin',
+      })}`,
     };
 
-    const studentResponse = await app.inject({
-      method: 'POST',
-      url: '/students',
-      payload: {
-        name: 'Test Student',
-        email: `student-${randomUUID()}@example.com`,
-        enrollmentNumber: `EN${randomUUID().replaceAll('-', '').slice(0, 8)}`,
-        department: 'Computer Science',
-        semester: 5,
-      },
-    });
+    // Create student records using an authorized faculty request.
+    const studentRecord = await createStudentRecord('Test Student');
+    const otherStudentRecord = await createStudentRecord('Other Student');
 
-    studentId = studentResponse.json().data.id;
+    studentId = studentRecord.id;
+    otherStudentId = otherStudentRecord.id;
 
-    const otherStudentResponse = await app.inject({
-      method: 'POST',
-      url: '/students',
-      payload: {
-        name: 'Other Student',
-        email: `other-${randomUUID()}@example.com`,
-        enrollmentNumber: `EN${randomUUID().replaceAll('-', '').slice(0, 8)}`,
-        department: 'Computer Science',
-        semester: 5,
-      },
-    });
+    // Create actual user accounts.
+    const studentUser = await createStudentUser('Test Student User');
+    const otherStudentUser = await createStudentUser('Other Student User');
 
-    otherStudentId = otherStudentResponse.json().data.id;
+    // Link each user account to its corresponding student record.
+    await linkStudentToUser(studentId, studentUser.id);
+    await linkStudentToUser(otherStudentId, otherStudentUser.id);
 
-    // JWT sub values must match the students used in ownership tests.
-    studentToken = app.jwt.sign({
-      sub: studentId,
-      role: 'student',
-    });
-
-    otherStudentToken = app.jwt.sign({
-      sub: otherStudentId,
-      role: 'student',
-    });
-
+    // JWT sub must be User.id, not Student.id.
     studentHeaders = {
-      authorization: `Bearer ${studentToken}`,
+      authorization: `Bearer ${app.jwt.sign({
+        sub: studentUser.id,
+        role: 'student',
+      })}`,
     };
 
     otherStudentHeaders = {
-      authorization: `Bearer ${otherStudentToken}`,
+      authorization: `Bearer ${app.jwt.sign({
+        sub: otherStudentUser.id,
+        role: 'student',
+      })}`,
     };
 
     const courseResponse = await app.inject({
@@ -119,13 +168,13 @@ describe('Submission Routes', () => {
       },
     });
 
-    const courseBody = courseResponse.json();
+    expect(
+      courseResponse.statusCode,
+      `Create course failed: ${courseResponse.body}`,
+    ).toBe(201);
 
-    expect(courseResponse.statusCode, JSON.stringify(courseBody)).toBe(201);
+    courseId = courseResponse.json().data.id as string;
 
-    courseId = courseBody.data.id;
-    console.log('Course status:', courseResponse.statusCode);
-    console.log('Course response:', courseResponse.json());
     const assignmentResponse = await app.inject({
       method: 'POST',
       url: '/assignments',
@@ -139,7 +188,16 @@ describe('Submission Routes', () => {
       },
     });
 
-    assignmentId = assignmentResponse.json().data.id;
+    expect(
+      assignmentResponse.statusCode,
+      `Create assignment failed: ${assignmentResponse.body}`,
+    ).toBe(201);
+
+    assignmentId = assignmentResponse.json().data.id as string;
+  });
+
+  afterEach(async () => {
+    await app.close();
   });
 
   it('should reject unauthenticated submission creation', async () => {
@@ -157,19 +215,9 @@ describe('Submission Routes', () => {
   });
 
   it('should create a submission', async () => {
-    const response = await app.inject({
-      method: 'POST',
-      url: '/submissions',
-      headers: studentHeaders,
-      payload: {
-        studentId,
-        assignmentId,
-        content: 'My completed assignment solution',
-      },
-    });
+    const submission = await createSubmission();
 
-    expect(response.statusCode).toBe(201);
-    expect(response.json().data.status).toBe('submitted');
+    expect(submission.status).toBe('submitted');
   });
 
   it('should reject faculty from creating a submission', async () => {
@@ -210,12 +258,14 @@ describe('Submission Routes', () => {
       content: 'My completed assignment solution',
     };
 
-    await app.inject({
+    const firstResponse = await app.inject({
       method: 'POST',
       url: '/submissions',
       headers: studentHeaders,
       payload,
     });
+
+    expect(firstResponse.statusCode, firstResponse.body).toBe(201);
 
     const response = await app.inject({
       method: 'POST',
@@ -228,22 +278,24 @@ describe('Submission Routes', () => {
     expect(response.json().error.code).toBe('SUBMISSION_EXISTS');
   });
 
-  it('should reject submission from nonexistent student', async () => {
+  it('should reject a student from submitting for a nonexistent student record', async () => {
     const response = await app.inject({
       method: 'POST',
       url: '/submissions',
       headers: studentHeaders,
       payload: {
-        studentId,
-        assignmentId: randomUUID(),
-        content: 'My completed assignment solution',
+        studentId: randomUUID(),
+        assignmentId,
+        content: 'Trying to submit for a nonexistent student',
       },
     });
 
-    expect(response.statusCode).toBe(404);
+    // Ownership is checked before record existence.
+    expect(response.statusCode).toBe(403);
+    expect(response.json().error.code).toBe('FORBIDDEN');
   });
 
-  it('should reject submission for nonexistent assignment', async () => {
+  it('should reject submission for a nonexistent assignment', async () => {
     const response = await app.inject({
       method: 'POST',
       url: '/submissions',
@@ -260,16 +312,7 @@ describe('Submission Routes', () => {
   });
 
   it('should retrieve own student submissions', async () => {
-    await app.inject({
-      method: 'POST',
-      url: '/submissions',
-      headers: studentHeaders,
-      payload: {
-        studentId,
-        assignmentId,
-        content: 'My completed assignment solution',
-      },
-    });
+    await createSubmission();
 
     const response = await app.inject({
       method: 'GET',
@@ -303,22 +346,14 @@ describe('Submission Routes', () => {
   });
 
   it('should update own submission content', async () => {
-    const createResponse = await app.inject({
-      method: 'POST',
-      url: '/submissions',
-      headers: studentHeaders,
-      payload: {
-        studentId,
-        assignmentId,
-        content: 'My original assignment solution',
-      },
-    });
-
-    const submissionId = createResponse.json().data.id;
+    const submission = await createSubmission(
+      studentHeaders,
+      'My original assignment solution',
+    );
 
     const response = await app.inject({
       method: 'PATCH',
-      url: `/submissions/${submissionId}`,
+      url: `/submissions/${submission.id}`,
       headers: studentHeaders,
       payload: {
         content: 'My updated assignment solution',
@@ -330,22 +365,14 @@ describe('Submission Routes', () => {
   });
 
   it('should reject another student from updating the submission', async () => {
-    const createResponse = await app.inject({
-      method: 'POST',
-      url: '/submissions',
-      headers: studentHeaders,
-      payload: {
-        studentId,
-        assignmentId,
-        content: 'My original assignment solution',
-      },
-    });
-
-    const submissionId = createResponse.json().data.id;
+    const submission = await createSubmission(
+      studentHeaders,
+      'My original assignment solution',
+    );
 
     const response = await app.inject({
       method: 'PATCH',
-      url: `/submissions/${submissionId}`,
+      url: `/submissions/${submission.id}`,
       headers: otherStudentHeaders,
       payload: {
         content: 'Trying to modify another submission',
@@ -357,22 +384,14 @@ describe('Submission Routes', () => {
   });
 
   it('should reject faculty from updating submission content', async () => {
-    const createResponse = await app.inject({
-      method: 'POST',
-      url: '/submissions',
-      headers: studentHeaders,
-      payload: {
-        studentId,
-        assignmentId,
-        content: 'My original assignment solution',
-      },
-    });
-
-    const submissionId = createResponse.json().data.id;
+    const submission = await createSubmission(
+      studentHeaders,
+      'My original assignment solution',
+    );
 
     const response = await app.inject({
       method: 'PATCH',
-      url: `/submissions/${submissionId}`,
+      url: `/submissions/${submission.id}`,
       headers: facultyHeaders,
       payload: {
         content: 'Faculty should use grading endpoint',
@@ -383,22 +402,11 @@ describe('Submission Routes', () => {
   });
 
   it('should allow faculty to grade a submission', async () => {
-    const createResponse = await app.inject({
-      method: 'POST',
-      url: '/submissions',
-      headers: studentHeaders,
-      payload: {
-        studentId,
-        assignmentId,
-        content: 'My completed assignment solution',
-      },
-    });
-
-    const submissionId = createResponse.json().data.id;
+    const submission = await createSubmission();
 
     const response = await app.inject({
       method: 'PATCH',
-      url: `/submissions/${submissionId}/grade`,
+      url: `/submissions/${submission.id}/grade`,
       headers: facultyHeaders,
       payload: {
         marks: 85,
@@ -412,22 +420,11 @@ describe('Submission Routes', () => {
   });
 
   it('should allow admin to grade a submission', async () => {
-    const createResponse = await app.inject({
-      method: 'POST',
-      url: '/submissions',
-      headers: studentHeaders,
-      payload: {
-        studentId,
-        assignmentId,
-        content: 'My completed assignment solution',
-      },
-    });
-
-    const submissionId = createResponse.json().data.id;
+    const submission = await createSubmission();
 
     const response = await app.inject({
       method: 'PATCH',
-      url: `/submissions/${submissionId}/grade`,
+      url: `/submissions/${submission.id}/grade`,
       headers: adminHeaders,
       payload: {
         marks: 90,
@@ -439,22 +436,11 @@ describe('Submission Routes', () => {
   });
 
   it('should reject a student from grading a submission', async () => {
-    const createResponse = await app.inject({
-      method: 'POST',
-      url: '/submissions',
-      headers: studentHeaders,
-      payload: {
-        studentId,
-        assignmentId,
-        content: 'My completed assignment solution',
-      },
-    });
-
-    const submissionId = createResponse.json().data.id;
+    const submission = await createSubmission();
 
     const response = await app.inject({
       method: 'PATCH',
-      url: `/submissions/${submissionId}/grade`,
+      url: `/submissions/${submission.id}/grade`,
       headers: studentHeaders,
       payload: {
         marks: 85,
@@ -465,22 +451,11 @@ describe('Submission Routes', () => {
   });
 
   it('should reject marks exceeding maximum marks', async () => {
-    const createResponse = await app.inject({
-      method: 'POST',
-      url: '/submissions',
-      headers: studentHeaders,
-      payload: {
-        studentId,
-        assignmentId,
-        content: 'My completed assignment solution',
-      },
-    });
-
-    const submissionId = createResponse.json().data.id;
+    const submission = await createSubmission();
 
     const response = await app.inject({
       method: 'PATCH',
-      url: `/submissions/${submissionId}/grade`,
+      url: `/submissions/${submission.id}/grade`,
       headers: facultyHeaders,
       payload: {
         marks: 150,
@@ -513,22 +488,11 @@ describe('Submission Routes', () => {
   });
 
   it('should retrieve a submission by ID for faculty', async () => {
-    const createResponse = await app.inject({
-      method: 'POST',
-      url: '/submissions',
-      headers: studentHeaders,
-      payload: {
-        studentId,
-        assignmentId,
-        content: 'My completed assignment solution',
-      },
-    });
-
-    const submissionId = createResponse.json().data.id;
+    const submission = await createSubmission();
 
     const response = await app.inject({
       method: 'GET',
-      url: `/submissions/${submissionId}`,
+      url: `/submissions/${submission.id}`,
       headers: facultyHeaders,
     });
 
@@ -536,22 +500,11 @@ describe('Submission Routes', () => {
   });
 
   it('should reject a student from viewing another student submission', async () => {
-    const createResponse = await app.inject({
-      method: 'POST',
-      url: '/submissions',
-      headers: studentHeaders,
-      payload: {
-        studentId,
-        assignmentId,
-        content: 'My completed assignment solution',
-      },
-    });
-
-    const submissionId = createResponse.json().data.id;
+    const submission = await createSubmission();
 
     const response = await app.inject({
       method: 'GET',
-      url: `/submissions/${submissionId}`,
+      url: `/submissions/${submission.id}`,
       headers: otherStudentHeaders,
     });
 
