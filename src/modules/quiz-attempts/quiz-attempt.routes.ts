@@ -1,3 +1,4 @@
+
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
@@ -119,6 +120,10 @@ function requireStudent(user: AuthenticatedUser): void {
   }
 }
 
+function requestSafeLog(reply: FastifyReply, error: unknown): void {
+  reply.log.error({ err: error }, 'Quiz attempt request failed');
+}
+
 function sendError(error: unknown, reply: FastifyReply) {
   const code = error instanceof Error ? error.message : 'INTERNAL_ERROR';
   const known = knownErrors[code];
@@ -142,11 +147,6 @@ function sendError(error: unknown, reply: FastifyReply) {
       message: known.message,
     },
   });
-}
-
-function requestSafeLog(reply: FastifyReply, error: unknown): void {
-  // Log server-side details without exposing them in the API response.
-  reply.log.error({ err: error }, 'Quiz attempt request failed');
 }
 
 function invalidId(reply: FastifyReply, message: string) {

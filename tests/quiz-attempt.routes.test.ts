@@ -1,3 +1,4 @@
+
 import {
   afterAll,
   beforeAll,
@@ -127,6 +128,7 @@ describe('Quiz attempt routes', () => {
     const response = await request('POST', '/quizzes/not-a-uuid/attempts');
 
     expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('INVALID_ID');
     expect(service.start).not.toHaveBeenCalled();
   });
 
@@ -164,6 +166,14 @@ describe('Quiz attempt routes', () => {
     expect(service.getQuestions).toHaveBeenCalledWith(ATTEMPT_ID, STUDENT_ID);
   });
 
+  it('rejects an invalid attempt ID when fetching questions', async () => {
+    const response = await request('GET', '/attempts/not-a-uuid/questions');
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('INVALID_ID');
+    expect(service.getQuestions).not.toHaveBeenCalled();
+  });
+
   it('rejects invalid answer options', async () => {
     const response = await request(
       'PUT',
@@ -172,6 +182,31 @@ describe('Quiz attempt routes', () => {
     );
 
     expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
+    expect(service.saveAnswer).not.toHaveBeenCalled();
+  });
+
+  it('rejects unexpected fields in the answer body', async () => {
+    const response = await request(
+      'PUT',
+      `/attempts/${ATTEMPT_ID}/answers/${QUESTION_ID}`,
+      { payload: { selectedOption: 'A', correctOption: 'A' } },
+    );
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
+    expect(service.saveAnswer).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid question ID when saving an answer', async () => {
+    const response = await request(
+      'PUT',
+      `/attempts/${ATTEMPT_ID}/answers/not-a-uuid`,
+      { payload: { selectedOption: 'A' } },
+    );
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('INVALID_ID');
     expect(service.saveAnswer).not.toHaveBeenCalled();
   });
 
@@ -194,6 +229,14 @@ describe('Quiz attempt routes', () => {
       },
       STUDENT_ID,
     );
+  });
+
+  it('rejects an invalid attempt ID when submitting', async () => {
+    const response = await request('POST', '/attempts/not-a-uuid/submit');
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('INVALID_ID');
+    expect(service.submit).not.toHaveBeenCalled();
   });
 
   it('submits an attempt and returns its result', async () => {
@@ -220,5 +263,15 @@ describe('Quiz attempt routes', () => {
 
     expect(response.statusCode).toBe(403);
     expect(response.json().error.code).toBe('FORBIDDEN');
+  });
+
+  it('does not expose internal error details', async () => {
+    service.submit.mockRejectedValue(new Error('DATABASE_CONNECTION_SECRET'));
+
+    const response = await request('POST', `/attempts/${ATTEMPT_ID}/submit`);
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json().error.code).toBe('INTERNAL_ERROR');
+    expect(response.body).not.toContain('DATABASE_CONNECTION_SECRET');
   });
 });
