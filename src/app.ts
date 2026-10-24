@@ -1,4 +1,4 @@
-
+import { randomUUID } from 'node:crypto';
 import Fastify from 'fastify';
 import jwt from '@fastify/jwt';
 import swagger from '@fastify/swagger';
@@ -33,7 +33,26 @@ type AppContainer = Pick<
 
 export function buildApp(container: AppContainer) {
   const app = Fastify({
-    logger: true,
+    logger: {
+      level: process.env.LOG_LEVEL || 'info',
+      redact: ['req.headers.authorization', 'req.headers.cookie'],
+    },
+    requestIdHeader: false,
+    genReqId: () => randomUUID(),
+  });
+
+  // Log completed requests with their IDs and response times.
+  app.addHook('onResponse', async (request, reply) => {
+    request.log.info(
+      {
+        requestId: request.id,
+        method: request.method,
+        url: request.url,
+        statusCode: reply.statusCode,
+        responseTime: reply.elapsedTime,
+      },
+      'Request completed',
+    );
   });
 
   // Swagger / OpenAPI
