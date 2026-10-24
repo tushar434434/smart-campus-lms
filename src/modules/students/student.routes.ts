@@ -40,10 +40,10 @@ export async function studentRoutes(
             'semester',
           ],
           properties: {
-            name: { type: 'string', minLength: 3 },
-            email: { type: 'string', format: 'email' },
-            enrollmentNumber: { type: 'string', minLength: 5 },
-            department: { type: 'string', minLength: 2 },
+            name: { type: 'string' },
+            email: { type: 'string' },
+            enrollmentNumber: { type: 'string' },
+            department: { type: 'string' },
             semester: {
               type: 'integer',
               minimum: 1,
@@ -199,10 +199,10 @@ export async function studentRoutes(
         body: {
           type: 'object',
           properties: {
-            name: { type: 'string', minLength: 3 },
-            email: { type: 'string', format: 'email' },
-            enrollmentNumber: { type: 'string', minLength: 5 },
-            department: { type: 'string', minLength: 2 },
+            name: { type: 'string' },
+            email: { type: 'string' },
+            enrollmentNumber: { type: 'string' },
+            department: { type: 'string' },
             semester: {
               type: 'integer',
               minimum: 1,

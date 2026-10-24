@@ -8,7 +8,6 @@ import rateLimit from '@fastify/rate-limit';
 import { errorHandler } from './errors/error-handler.js';
 import { createContainer } from './container.js';
 
-// Routes
 import { courseRoutes } from './modules/courses/course.routes.js';
 import { studentRoutes } from './modules/students/student.routes.js';
 import { enrollmentRoutes } from './modules/enrollments/enrollment.routes.js';
@@ -18,18 +17,31 @@ import { authRoutes } from './modules/auth/auth.routes.js';
 import { quizRoutes } from './modules/quizzes/quiz.routes.js';
 import { quizAttemptRoutes } from './modules/quiz-attempts/quiz-attempt.routes.js';
 
-type AppContainer = Pick<
-  ReturnType<typeof createContainer>,
-  | 'prisma'
-  | 'courseService'
-  | 'studentService'
-  | 'enrollmentService'
-  | 'assignmentService'
-  | 'submissionService'
-  | 'authService'
-  | 'quizService'
-  | 'quizAttemptService'
->;
+type HealthCheckPrisma = {
+  $queryRaw: (
+    query: TemplateStringsArray,
+    ...values: unknown[]
+  ) => Promise<unknown>;
+  $disconnect: () => Promise<unknown>;
+};
+
+type AppContainer = Omit<
+  Pick<
+    ReturnType<typeof createContainer>,
+    | 'prisma'
+    | 'courseService'
+    | 'studentService'
+    | 'enrollmentService'
+    | 'assignmentService'
+    | 'submissionService'
+    | 'authService'
+    | 'quizService'
+    | 'quizAttemptService'
+  >,
+  'prisma'
+> & {
+  prisma: HealthCheckPrisma;
+};
 
 export function buildApp(container: AppContainer) {
   const app = Fastify({
@@ -41,7 +53,6 @@ export function buildApp(container: AppContainer) {
     genReqId: () => randomUUID(),
   });
 
-  // Log completed requests with their IDs and response times.
   app.addHook('onResponse', async (request, reply) => {
     request.log.info(
       {
@@ -55,7 +66,6 @@ export function buildApp(container: AppContainer) {
     );
   });
 
-  // Swagger / OpenAPI
   app.register(swagger, {
     openapi: {
       info: {
@@ -94,7 +104,7 @@ export function buildApp(container: AppContainer) {
         },
         {
           name: 'Submissions',
-          description: 'Assignment submission endpoints',
+          description: 'Assignment management endpoints',
         },
         {
           name: 'Quizzes',
@@ -122,7 +132,6 @@ export function buildApp(container: AppContainer) {
     routePrefix: '/docs',
   });
 
-  // JWT configuration
   app.register(jwt, {
     secret:
       process.env.JWT_SECRET ??
@@ -132,7 +141,6 @@ export function buildApp(container: AppContainer) {
     },
   });
 
-  // Global rate limiting
   app.register(rateLimit, {
     max: 100,
     timeWindow: '1 minute',
@@ -148,10 +156,8 @@ export function buildApp(container: AppContainer) {
     }),
   });
 
-  // Global error handler
   app.setErrorHandler(errorHandler);
 
-  // Dependency container
   const {
     prisma,
     courseService,
@@ -164,7 +170,6 @@ export function buildApp(container: AppContainer) {
     quizAttemptService,
   } = container;
 
-  // Health check: API and database connectivity
   app.get(
     '/health',
     {
@@ -200,42 +205,34 @@ export function buildApp(container: AppContainer) {
     },
   );
 
-  // Course routes
   app.register(courseRoutes, {
     service: courseService,
   });
 
-  // Student routes
   app.register(studentRoutes, {
     service: studentService,
   });
 
-  // Enrollment routes
   app.register(enrollmentRoutes, {
     service: enrollmentService,
   });
 
-  // Assignment routes
   app.register(assignmentRoutes, {
     service: assignmentService,
   });
 
-  // Submission routes
   app.register(submissionRoutes, {
     service: submissionService,
   });
 
-  // Quiz routes
   app.register(async (quizApp) => {
     await quizRoutes(quizApp, quizService);
   });
 
-  // Quiz attempt routes
   app.register(async (attemptApp) => {
     await quizAttemptRoutes(attemptApp, quizAttemptService);
   });
 
-  // Authentication routes
   app.register(authRoutes, {
     prefix: '/auth',
     service: authService,

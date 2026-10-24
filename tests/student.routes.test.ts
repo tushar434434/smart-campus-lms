@@ -1,14 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createTestContainer } from '../src/test-container.js';
+
 import { buildApp } from '../src/app.js';
+import { createTestContainer } from '../src/test-container.js';
 
 describe('Student API', () => {
   let app: ReturnType<typeof buildApp>;
-  let container: ReturnType<typeof createTestContainer>;
 
-  beforeEach(() => {
-    container = createTestContainer();
+  beforeEach(async () => {
+    const container = createTestContainer();
+
     app = buildApp(container);
+
+    await app.ready();
   });
 
   afterEach(async () => {
@@ -309,6 +312,59 @@ describe('Student API', () => {
         enrollmentNumber: 'AI1',
         department: 'AI',
         semester: 10,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('should trim student name, email, and department when creating', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/students',
+      payload: {
+        name: '  Trimmed Student  ',
+        email: '  trimmed.student@example.com  ',
+        enrollmentNumber: 'TRIM2026101',
+        department: '  CSE  ',
+        semester: 5,
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json().data.name).toBe('Trimmed Student');
+    expect(response.json().data.email).toBe('trimmed.student@example.com');
+    expect(response.json().data.department).toBe('CSE');
+  });
+
+  it('should reject a student name longer than 100 characters', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/students',
+      payload: {
+        name: 'A'.repeat(101),
+        email: 'long.name@example.com',
+        enrollmentNumber: 'LONG2026101',
+        department: 'CSE',
+        semester: 5,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('should reject a student name shorter than 3 characters after trimming', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/students',
+      payload: {
+        name: ' A ',
+        email: 'short.name@example.com',
+        enrollmentNumber: 'SHORT2026101',
+        department: 'CSE',
+        semester: 5,
       },
     });
 
