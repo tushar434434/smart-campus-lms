@@ -73,7 +73,7 @@ export class QuizAttemptService {
     const attempt = await this.requireOwnedAttempt(attemptId, studentId);
 
     if (attempt.status !== 'in_progress') {
-      return attempt;
+      return this.hideScoreUnlessReleased(attempt);
     }
 
     if (await this.isExpired(attempt)) {
@@ -86,7 +86,7 @@ export class QuizAttemptService {
         throw new Error('ATTEMPT_NOT_FOUND');
       }
 
-      return autoSubmitted;
+      return this.hideScoreUnlessReleased(autoSubmitted);
     }
 
     const submitted = await this.attemptRepository.submit(
@@ -98,7 +98,28 @@ export class QuizAttemptService {
       throw new Error('ATTEMPT_NOT_FOUND');
     }
 
-    return submitted;
+    return this.hideScoreUnlessReleased(submitted);
+  }
+
+  private async hideScoreUnlessReleased(
+    attempt: QuizAttempt,
+  ): Promise<QuizAttempt> {
+    const quiz = await this.quizRepository.findById(attempt.quizId);
+
+    if (!quiz) {
+      throw new Error('QUIZ_NOT_FOUND');
+    }
+
+    const canViewMarks = quiz.resultsReleasedAt !== null && quiz.showMarks;
+
+    if (!canViewMarks) {
+      return {
+        ...attempt,
+        score: null,
+      };
+    }
+
+    return attempt;
   }
 
   private async requireOwnedAttempt(

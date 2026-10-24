@@ -1,13 +1,20 @@
-
 import { AppError } from '../../errors/app-error.js';
 import type { CourseRepository } from '../courses/course.repository.interface.js';
 
 import type {
   CreateQuizInput,
+  CreateQuizQuestionInput,
   UpdateQuizInput,
+  UpdateQuizQuestionInput,
   ReleaseQuizResultsInput,
 } from './quiz.schema.js';
-import type { Quiz, QuizRepository } from './quiz.repository.interface.js';
+
+import type {
+  Quiz,
+  QuizQuestion,
+  QuizQuestionForStudent,
+  QuizRepository,
+} from './quiz.repository.interface.js';
 
 type QuizReader = {
   role: 'admin' | 'faculty' | 'student';
@@ -38,9 +45,7 @@ export class QuizService {
 
     const quizzes = await this.quizRepository.findAllByCourseId(courseId);
 
-    if (user.role !== 'student') {
-      return quizzes;
-    }
+    if (user.role !== 'student') return quizzes;
 
     return quizzes
       .filter((quiz) => quiz.status === 'published')
@@ -50,11 +55,7 @@ export class QuizService {
   async getById(id: string, user: QuizReader): Promise<Quiz> {
     const quiz = await this.quizRepository.findById(id);
 
-    if (!quiz) {
-      throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
-    }
-
-    if (user.role === 'student' && quiz.status !== 'published') {
+    if (!quiz || (user.role === 'student' && quiz.status !== 'published')) {
       throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
     }
 
@@ -78,9 +79,7 @@ export class QuizService {
       throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
     }
 
-    const questionCount = await this.quizRepository.countQuestions(id);
-
-    if (questionCount === 0) {
+    if ((await this.quizRepository.countQuestions(id)) === 0) {
       throw new AppError(
         'Cannot publish a quiz without questions',
         400,
@@ -111,10 +110,118 @@ export class QuizService {
   }
 
   async delete(id: string): Promise<void> {
-    const deleted = await this.quizRepository.delete(id);
+    if (!(await this.quizRepository.delete(id))) {
+      throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
+    }
+  }
+
+  async createQuestion(
+    quizId: string,
+    input: CreateQuizQuestionInput,
+  ): Promise<QuizQuestion> {
+    const quiz = await this.quizRepository.findById(quizId);
+
+    if (!quiz) {
+      throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
+    }
+
+    if (quiz.status !== 'draft') {
+      throw new AppError(
+        'Questions can only be added to draft quizzes',
+        409,
+        'QUIZ_NOT_EDITABLE',
+      );
+    }
+
+    const question = await this.quizRepository.createQuestion(quizId, input);
+
+    if (!question) {
+      throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
+    }
+
+    return question;
+  }
+
+  async getQuestions(
+    quizId: string,
+    user: QuizReader,
+  ): Promise<Array<QuizQuestion | QuizQuestionForStudent>> {
+    const quiz = await this.quizRepository.findById(quizId);
+
+    if (!quiz || (user.role === 'student' && quiz.status !== 'published')) {
+      throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
+    }
+
+    const questions = await this.quizRepository.findQuestionsByQuizId(quizId);
+
+    if (user.role !== 'student') return questions;
+
+    const canSeeCorrectAnswers =
+      quiz.resultsReleasedAt !== null && quiz.showCorrectAnswers;
+
+    if (canSeeCorrectAnswers) return questions;
+
+    return questions.map((question) => {
+      const { correctOption, ...safeQuestion } = question;
+      void correctOption;
+      return safeQuestion;
+    });
+  }
+
+  async updateQuestion(
+    quizId: string,
+    questionId: string,
+    input: UpdateQuizQuestionInput,
+  ): Promise<QuizQuestion> {
+    const quiz = await this.quizRepository.findById(quizId);
+
+    if (!quiz) {
+      throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
+    }
+
+    if (quiz.status !== 'draft') {
+      throw new AppError(
+        'Questions can only be changed in draft quizzes',
+        409,
+        'QUIZ_NOT_EDITABLE',
+      );
+    }
+
+    const question = await this.quizRepository.updateQuestion(
+      quizId,
+      questionId,
+      input,
+    );
+
+    if (!question) {
+      throw new AppError('Question not found', 404, 'QUESTION_NOT_FOUND');
+    }
+
+    return question;
+  }
+
+  async deleteQuestion(quizId: string, questionId: string): Promise<void> {
+    const quiz = await this.quizRepository.findById(quizId);
+
+    if (!quiz) {
+      throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
+    }
+
+    if (quiz.status !== 'draft') {
+      throw new AppError(
+        'Questions can only be deleted from draft quizzes',
+        409,
+        'QUIZ_NOT_EDITABLE',
+      );
+    }
+
+    const deleted = await this.quizRepository.deleteQuestion(
+      quizId,
+      questionId,
+    );
 
     if (!deleted) {
-      throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
+      throw new AppError('Question not found', 404, 'QUESTION_NOT_FOUND');
     }
   }
 

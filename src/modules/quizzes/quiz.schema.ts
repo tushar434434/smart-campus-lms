@@ -63,43 +63,57 @@ export const releaseQuizResultsSchema = z
   })
   .strict();
 
-export const createQuizQuestionSchema = z.object({
-  questionText: z
-    .string()
-    .trim()
-    .min(5, 'Question must be at least 5 characters'),
-  optionA: z.string().trim().min(1),
-  optionB: z.string().trim().min(1),
-  optionC: z.string().trim().min(1),
-  optionD: z.string().trim().min(1),
-  correctOption: z.enum(['A', 'B', 'C', 'D']),
-  marks: z.number().positive().default(1),
-});
+export const createQuizQuestionSchema = z
+  .object({
+    questionText: z
+      .string()
+      .trim()
+      .min(5, 'Question must be at least 5 characters'),
+    optionA: z.string().trim().min(1, 'Option A is required'),
+    optionB: z.string().trim().min(1, 'Option B is required'),
+    optionC: z.string().trim().min(1, 'Option C is required'),
+    optionD: z.string().trim().min(1, 'Option D is required'),
+    correctOption: z.enum(['A', 'B', 'C', 'D']),
+    marks: z.number().positive().default(1),
+  })
+  .strict();
 
-export const submitQuizAnswerSchema = z.object({
-  questionId: z.string().uuid('Invalid question ID'),
-  selectedOption: z.enum(['A', 'B', 'C', 'D']),
-});
+export const updateQuizQuestionSchema = createQuizQuestionSchema
+  .partial()
+  .strict()
+  .refine((question) => Object.keys(question).length > 0, {
+    message: 'At least one question field must be provided',
+  });
 
-export const recordProctoringEventSchema = z.object({
-  type: z.enum([
-    'tab_switch',
-    'fullscreen_exit',
-    'fullscreen_enter',
-    'visibility_hidden',
-    'visibility_visible',
-    'quiz_started',
-    'quiz_submitted',
-    'time_expired',
-  ]),
-  occurredAt: z.iso.datetime().optional(),
-  metadata: z.string().max(1000).optional(),
-});
+export const submitQuizAnswerSchema = z
+  .object({
+    questionId: z.string().uuid('Invalid question ID'),
+    selectedOption: z.enum(['A', 'B', 'C', 'D']),
+  })
+  .strict();
+
+export const recordProctoringEventSchema = z
+  .object({
+    type: z.enum([
+      'tab_switch',
+      'fullscreen_exit',
+      'fullscreen_enter',
+      'visibility_hidden',
+      'visibility_visible',
+      'quiz_started',
+      'quiz_submitted',
+      'time_expired',
+    ]),
+    occurredAt: z.iso.datetime().optional(),
+    metadata: z.string().max(1000).optional(),
+  })
+  .strict();
 
 export type CreateQuizInput = z.infer<typeof createQuizSchema>;
 export type UpdateQuizInput = z.infer<typeof updateQuizSchema>;
 export type ReleaseQuizResultsInput = z.infer<typeof releaseQuizResultsSchema>;
 export type CreateQuizQuestionInput = z.infer<typeof createQuizQuestionSchema>;
+export type UpdateQuizQuestionInput = z.infer<typeof updateQuizQuestionSchema>;
 export type SubmitQuizAnswerInput = z.infer<typeof submitQuizAnswerSchema>;
 export type RecordProctoringEventInput = z.infer<
   typeof recordProctoringEventSchema

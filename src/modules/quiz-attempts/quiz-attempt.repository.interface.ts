@@ -1,6 +1,8 @@
 export type QuizAttemptStatus =
   'in_progress' | 'submitted' | 'auto_submitted' | 'flagged';
 
+export type QuizOption = 'A' | 'B' | 'C' | 'D';
+
 export interface QuizAttempt {
   id: string;
   quizId: string;
@@ -28,7 +30,15 @@ export interface QuizQuestionForAttempt {
 export interface QuizAnswerInput {
   attemptId: string;
   questionId: string;
-  selectedOption: 'A' | 'B' | 'C' | 'D';
+  selectedOption: QuizOption;
+}
+
+export interface QuizAttemptAnswerResult {
+  questionId: string;
+  selectedOption: QuizOption;
+  correctOption: QuizOption;
+  marks: number;
+  marksAwarded: number;
 }
 
 export interface QuizAttemptRepository {
@@ -39,6 +49,8 @@ export interface QuizAttemptRepository {
   findQuestions(quizId: string): Promise<QuizQuestionForAttempt[]>;
 
   saveAnswer(input: QuizAnswerInput): Promise<void>;
+
+  findAnswersByAttemptId(attemptId: string): Promise<QuizAttemptAnswerResult[]>;
 
   submit(
     id: string,

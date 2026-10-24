@@ -1,0 +1,1816 @@
+﻿
+
+========== prisma/schema.prisma ==========
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  student
+  faculty
+  admin
+}
+
+enum SubmissionStatus {
+  submitted
+  graded
+}
+
+enum QuizStatus {
+  draft
+  published
+  closed
+}
+
+enum QuizAttemptStatus {
+  in_progress
+  submitted
+  auto_submitted
+  flagged
+}
+
+enum ProctoringEventType {
+  tab_switch
+  fullscreen_exit
+  fullscreen_enter
+  visibility_hidden
+  visibility_visible
+  quiz_started
+  quiz_submitted
+  time_expired
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole
+  createdAt    DateTime @default(now())
+
+  student Student?
+}
+
+model Student {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String?  @unique @db.Uuid
+  name             String
+  email            String   @unique
+  enrollmentNumber String   @unique
+  department       String
+  semester         Int
+  createdAt        DateTime @default(now())
+
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  enrollments  Enrollment[]
+  submissions  Submission[]
+  quizAttempts QuizAttempt[]
+}
+
+model Course {
+  id        String   @id @default(uuid()) @db.Uuid
+  title     String
+  code      String   @unique
+  credits   Int
+  createdAt DateTime @default(now())
+
+  enrollments Enrollment[]
+  assignments Assignment[]
+  quizzes     Quiz[]
+}
+
+model Enrollment {
+  id         String   @id @default(uuid()) @db.Uuid
+  studentId  String   @db.Uuid
+  courseId   String   @db.Uuid
+  enrolledAt DateTime @default(now())
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course  Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, courseId])
+}
+
+model Assignment {
+  id          String   @id @default(uuid()) @db.Uuid
+  courseId    String   @db.Uuid
+  title       String
+  description String
+  dueAt       DateTime
+  maxMarks    Float
+  createdAt   DateTime @default(now())
+
+  course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  submissions Submission[]
+}
+
+model Submission {
+  id           String           @id @default(uuid()) @db.Uuid
+  studentId    String           @db.Uuid
+  assignmentId String           @db.Uuid
+  content      String
+  status       SubmissionStatus @default(submitted)
+  marks        Float?
+  feedback     String?
+  submittedAt  DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  student    Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, assignmentId])
+}
+
+model Quiz {
+  id              String     @id @default(uuid()) @db.Uuid
+  courseId        String     @db.Uuid
+  title           String
+  description     String
+  durationMinutes Int
+  maxMarks        Float
+  maxAttempts     Int        @default(1)
+  status          QuizStatus @default(draft)
+  startsAt        DateTime?
+  endsAt          DateTime?
+
+  // Result visibility is controlled by the teacher.
+  resultsReleasedAt  DateTime?
+  showMarks          Boolean   @default(false)
+  showCorrectAnswers Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  course    Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  questions QuizQuestion[]
+  attempts  QuizAttempt[]
+
+  @@index([courseId])
+}
+
+model QuizQuestion {
+  id            String @id @default(uuid()) @db.Uuid
+  quizId        String @db.Uuid
+  questionText  String
+  optionA       String
+  optionB       String
+  optionC       String
+  optionD       String
+  correctOption String
+  marks         Float  @default(1)
+
+  quiz    Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  answers QuizAnswer[]
+
+  @@index([quizId])
+}
+
+model QuizAttempt {
+  id                  String            @id @default(uuid()) @db.Uuid
+  quizId              String            @db.Uuid
+  studentId           String            @db.Uuid
+  startedAt           DateTime          @default(now())
+  submittedAt         DateTime?
+  status              QuizAttemptStatus @default(in_progress)
+  score               Float?
+  tabSwitchCount      Int               @default(0)
+  fullscreenExitCount Int               @default(0)
+  suspiciousActivity  Boolean           @default(false)
+
+  quiz             Quiz              @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  student          Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  answers          QuizAnswer[]
+  proctoringEvents ProctoringEvent[]
+
+  @@index([quizId])
+  @@index([studentId])
+}
+
+model QuizAnswer {
+  id             String   @id @default(uuid()) @db.Uuid
+  attemptId      String   @db.Uuid
+  questionId     String   @db.Uuid
+  selectedOption String
+  isCorrect      Boolean?
+  marksAwarded   Float?
+
+  attempt  QuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
+}
+
+model ProctoringEvent {
+  id         String              @id @default(uuid()) @db.Uuid
+  attemptId  String              @db.Uuid
+  type       ProctoringEventType
+  occurredAt DateTime            @default(now())
+  metadata   String?
+
+  attempt QuizAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId])
+}
+
+
+
+========== src/modules/quizzes/quiz.schema.ts ==========
+
+import { z } from 'zod';
+
+export const createQuizSchema = z
+  .object({
+    courseId: z.string().uuid('Invalid course ID'),
+    title: z.string().trim().min(3, 'Title must be at least 3 characters'),
+    description: z
+      .string()
+      .trim()
+      .min(5, 'Description must be at least 5 characters'),
+    durationMinutes: z.number().int().positive('Duration must be positive'),
+    maxMarks: z.number().positive('Maximum marks must be positive'),
+    maxAttempts: z.number().int().positive().default(1),
+    startsAt: z.iso.datetime().optional(),
+    endsAt: z.iso.datetime().optional(),
+  })
+  .refine(
+    (quiz) =>
+      !quiz.startsAt ||
+      !quiz.endsAt ||
+      new Date(quiz.startsAt) < new Date(quiz.endsAt),
+    {
+      message: 'Quiz end time must be after start time',
+      path: ['endsAt'],
+    },
+  );
+
+export const updateQuizSchema = z
+  .object({
+    title: z
+      .string()
+      .trim()
+      .min(3, 'Title must be at least 3 characters')
+      .optional(),
+    description: z
+      .string()
+      .trim()
+      .min(5, 'Description must be at least 5 characters')
+      .optional(),
+    durationMinutes: z.number().int().positive().optional(),
+    maxMarks: z.number().positive().optional(),
+    maxAttempts: z.number().int().positive().optional(),
+    startsAt: z.iso.datetime().nullable().optional(),
+    endsAt: z.iso.datetime().nullable().optional(),
+    showMarks: z.boolean().optional(),
+    showCorrectAnswers: z.boolean().optional(),
+  })
+  .refine(
+    (quiz) =>
+      !quiz.startsAt ||
+      !quiz.endsAt ||
+      new Date(quiz.startsAt) < new Date(quiz.endsAt),
+    {
+      message: 'Quiz end time must be after start time',
+      path: ['endsAt'],
+    },
+  );
+
+export const releaseQuizResultsSchema = z
+  .object({
+    showMarks: z.boolean(),
+    showCorrectAnswers: z.boolean(),
+  })
+  .strict();
+
+export const createQuizQuestionSchema = z.object({
+  questionText: z
+    .string()
+    .trim()
+    .min(5, 'Question must be at least 5 characters'),
+  optionA: z.string().trim().min(1),
+  optionB: z.string().trim().min(1),
+  optionC: z.string().trim().min(1),
+  optionD: z.string().trim().min(1),
+  correctOption: z.enum(['A', 'B', 'C', 'D']),
+  marks: z.number().positive().default(1),
+});
+
+export const submitQuizAnswerSchema = z.object({
+  questionId: z.string().uuid('Invalid question ID'),
+  selectedOption: z.enum(['A', 'B', 'C', 'D']),
+});
+
+export const recordProctoringEventSchema = z.object({
+  type: z.enum([
+    'tab_switch',
+    'fullscreen_exit',
+    'fullscreen_enter',
+    'visibility_hidden',
+    'visibility_visible',
+    'quiz_started',
+    'quiz_submitted',
+    'time_expired',
+  ]),
+  occurredAt: z.iso.datetime().optional(),
+  metadata: z.string().max(1000).optional(),
+});
+
+export type CreateQuizInput = z.infer<typeof createQuizSchema>;
+export type UpdateQuizInput = z.infer<typeof updateQuizSchema>;
+export type ReleaseQuizResultsInput = z.infer<typeof releaseQuizResultsSchema>;
+export type CreateQuizQuestionInput = z.infer<typeof createQuizQuestionSchema>;
+export type SubmitQuizAnswerInput = z.infer<typeof submitQuizAnswerSchema>;
+export type RecordProctoringEventInput = z.infer<
+  typeof recordProctoringEventSchema
+>;
+
+
+
+========== src/modules/quizzes/quiz.prisma.repository.ts ==========
+
+
+import { Prisma } from '../../generated/prisma/client.js';
+import { PrismaClient } from '../../generated/prisma/client.js';
+
+import type {
+  Quiz,
+  QuizRepository,
+  ReleaseQuizResultsInput,
+} from './quiz.repository.interface.js';
+
+import type { CreateQuizInput, UpdateQuizInput } from './quiz.schema.js';
+
+export class PrismaQuizRepository implements QuizRepository {
+  constructor(private readonly prisma: PrismaClient) {}
+
+  async create(input: CreateQuizInput): Promise<Quiz> {
+    const quiz = await this.prisma.quiz.create({
+      data: {
+        courseId: input.courseId,
+        title: input.title,
+        description: input.description,
+        durationMinutes: input.durationMinutes,
+        maxMarks: input.maxMarks,
+        maxAttempts: input.maxAttempts,
+        ...(input.startsAt && {
+          startsAt: new Date(input.startsAt),
+        }),
+        ...(input.endsAt && {
+          endsAt: new Date(input.endsAt),
+        }),
+      },
+    });
+
+    return this.toQuiz(quiz);
+  }
+
+  async findAllByCourseId(courseId: string): Promise<Quiz[]> {
+    const quizzes = await this.prisma.quiz.findMany({
+      where: { courseId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return quizzes.map((quiz) => this.toQuiz(quiz));
+  }
+
+  async findById(id: string): Promise<Quiz | undefined> {
+    const quiz = await this.prisma.quiz.findUnique({
+      where: { id },
+    });
+
+    return quiz ? this.toQuiz(quiz) : undefined;
+  }
+
+  async update(id: string, input: UpdateQuizInput): Promise<Quiz | undefined> {
+    try {
+      const quiz = await this.prisma.quiz.update({
+        where: { id },
+        data: {
+          ...(input.title !== undefined && {
+            title: input.title,
+          }),
+          ...(input.description !== undefined && {
+            description: input.description,
+          }),
+          ...(input.durationMinutes !== undefined && {
+            durationMinutes: input.durationMinutes,
+          }),
+          ...(input.maxMarks !== undefined && {
+            maxMarks: input.maxMarks,
+          }),
+          ...(input.maxAttempts !== undefined && {
+            maxAttempts: input.maxAttempts,
+          }),
+          ...(input.startsAt !== undefined && {
+            startsAt: input.startsAt ? new Date(input.startsAt) : null,
+          }),
+          ...(input.endsAt !== undefined && {
+            endsAt: input.endsAt ? new Date(input.endsAt) : null,
+          }),
+          ...(input.showMarks !== undefined && {
+            showMarks: input.showMarks,
+          }),
+          ...(input.showCorrectAnswers !== undefined && {
+            showCorrectAnswers: input.showCorrectAnswers,
+          }),
+        },
+      });
+
+      return this.toQuiz(quiz);
+    } catch (error: unknown) {
+      if (this.isRecordNotFoundError(error)) {
+        return undefined;
+      }
+
+      throw error;
+    }
+  }
+
+  async countQuestions(id: string): Promise<number> {
+    return this.prisma.quizQuestion.count({
+      where: { quizId: id },
+    });
+  }
+
+  async publish(id: string): Promise<Quiz | undefined> {
+    try {
+      const quiz = await this.prisma.quiz.update({
+        where: { id },
+        data: {
+          status: 'published',
+        },
+      });
+
+      return this.toQuiz(quiz);
+    } catch (error: unknown) {
+      if (this.isRecordNotFoundError(error)) {
+        return undefined;
+      }
+
+      throw error;
+    }
+  }
+
+  async releaseResults(
+    id: string,
+    input: ReleaseQuizResultsInput,
+  ): Promise<Quiz | undefined> {
+    try {
+      const quiz = await this.prisma.quiz.update({
+        where: { id },
+        data: {
+          resultsReleasedAt: new Date(),
+          showMarks: input.showMarks,
+          showCorrectAnswers: input.showCorrectAnswers,
+        },
+      });
+
+      return this.toQuiz(quiz);
+    } catch (error: unknown) {
+      if (this.isRecordNotFoundError(error)) {
+        return undefined;
+      }
+
+      throw error;
+    }
+  }
+
+  async delete(id: string): Promise<boolean> {
+    try {
+      await this.prisma.quiz.delete({
+        where: { id },
+      });
+
+      return true;
+    } catch (error: unknown) {
+      if (this.isRecordNotFoundError(error)) {
+        return false;
+      }
+
+      throw error;
+    }
+  }
+
+  private isRecordNotFoundError(error: unknown): boolean {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2025'
+    );
+  }
+
+  private toQuiz(quiz: {
+    id: string;
+    courseId: string;
+    title: string;
+    description: string;
+    durationMinutes: number;
+    maxMarks: number;
+    maxAttempts: number;
+    status: Quiz['status'];
+    startsAt: Date | null;
+    endsAt: Date | null;
+    resultsReleasedAt: Date | null;
+    showMarks: boolean;
+    showCorrectAnswers: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }): Quiz {
+    return {
+      id: quiz.id,
+      courseId: quiz.courseId,
+      title: quiz.title,
+      description: quiz.description,
+      durationMinutes: quiz.durationMinutes,
+      maxMarks: quiz.maxMarks,
+      maxAttempts: quiz.maxAttempts,
+      status: quiz.status,
+      startsAt: quiz.startsAt,
+      endsAt: quiz.endsAt,
+      resultsReleasedAt: quiz.resultsReleasedAt,
+      showMarks: quiz.showMarks,
+      showCorrectAnswers: quiz.showCorrectAnswers,
+      createdAt: quiz.createdAt,
+      updatedAt: quiz.updatedAt,
+    };
+  }
+}
+
+
+
+========== src/modules/quizzes/quiz.repository.ts ==========
+
+
+import { randomUUID } from 'node:crypto';
+
+import type { CreateQuizInput, UpdateQuizInput } from './quiz.schema.js';
+import type {
+  Quiz,
+  QuizRepository,
+  ReleaseQuizResultsInput,
+} from './quiz.repository.interface.js';
+
+export class InMemoryQuizRepository implements QuizRepository {
+  private readonly quizzes = new Map<string, Quiz>();
+  private readonly questionCounts = new Map<string, number>();
+
+  async create(input: CreateQuizInput): Promise<Quiz> {
+    const now = new Date();
+
+    const quiz: Quiz = {
+      id: randomUUID(),
+      courseId: input.courseId,
+      title: input.title,
+      description: input.description,
+      durationMinutes: input.durationMinutes,
+      maxMarks: input.maxMarks,
+      maxAttempts: input.maxAttempts,
+      status: 'draft',
+      startsAt: input.startsAt ? new Date(input.startsAt) : null,
+      endsAt: input.endsAt ? new Date(input.endsAt) : null,
+      resultsReleasedAt: null,
+      showMarks: false,
+      showCorrectAnswers: false,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    this.quizzes.set(quiz.id, quiz);
+    this.questionCounts.set(quiz.id, 0);
+
+    return { ...quiz };
+  }
+
+  async findAllByCourseId(courseId: string): Promise<Quiz[]> {
+    return Array.from(this.quizzes.values())
+      .filter((quiz) => quiz.courseId === courseId)
+      .map((quiz) => ({ ...quiz }));
+  }
+
+  async findById(id: string): Promise<Quiz | undefined> {
+    const quiz = this.quizzes.get(id);
+    return quiz ? { ...quiz } : undefined;
+  }
+
+  async update(
+    id: string,
+    input: UpdateQuizInput,
+  ): Promise<Quiz | undefined> {
+    const existingQuiz = this.quizzes.get(id);
+
+    if (!existingQuiz) {
+      return undefined;
+    }
+
+    const updatedQuiz: Quiz = {
+      ...existingQuiz,
+      title: input.title ?? existingQuiz.title,
+      description: input.description ?? existingQuiz.description,
+      durationMinutes: input.durationMinutes ?? existingQuiz.durationMinutes,
+      maxMarks: input.maxMarks ?? existingQuiz.maxMarks,
+      maxAttempts: input.maxAttempts ?? existingQuiz.maxAttempts,
+      startsAt:
+        input.startsAt === undefined
+          ? existingQuiz.startsAt
+          : input.startsAt === null
+            ? null
+            : new Date(input.startsAt),
+      endsAt:
+        input.endsAt === undefined
+          ? existingQuiz.endsAt
+          : input.endsAt === null
+            ? null
+            : new Date(input.endsAt),
+      showMarks: input.showMarks ?? existingQuiz.showMarks,
+      showCorrectAnswers:
+        input.showCorrectAnswers ?? existingQuiz.showCorrectAnswers,
+      updatedAt: new Date(),
+    };
+
+    this.quizzes.set(id, updatedQuiz);
+    return { ...updatedQuiz };
+  }
+
+  async countQuestions(id: string): Promise<number> {
+    return this.questionCounts.get(id) ?? 0;
+  }
+
+  async publish(id: string): Promise<Quiz | undefined> {
+    const existingQuiz = this.quizzes.get(id);
+
+    if (!existingQuiz) {
+      return undefined;
+    }
+
+    const publishedQuiz: Quiz = {
+      ...existingQuiz,
+      status: 'published',
+      updatedAt: new Date(),
+    };
+
+    this.quizzes.set(id, publishedQuiz);
+    return { ...publishedQuiz };
+  }
+
+  async releaseResults(
+    id: string,
+    input: ReleaseQuizResultsInput,
+  ): Promise<Quiz | undefined> {
+    const existingQuiz = this.quizzes.get(id);
+
+    if (!existingQuiz) {
+      return undefined;
+    }
+
+    const now = new Date();
+
+    const updatedQuiz: Quiz = {
+      ...existingQuiz,
+      resultsReleasedAt: now,
+      showMarks: input.showMarks,
+      showCorrectAnswers: input.showCorrectAnswers,
+      updatedAt: now,
+    };
+
+    this.quizzes.set(id, updatedQuiz);
+    return { ...updatedQuiz };
+  }
+
+  async delete(id: string): Promise<boolean> {
+    this.questionCounts.delete(id);
+    return this.quizzes.delete(id);
+  }
+}
+
+
+
+========== src/modules/quizzes/quiz.repository.interface.ts ==========
+
+
+import type { CreateQuizInput, UpdateQuizInput } from './quiz.schema.js';
+
+export type QuizStatus = 'draft' | 'published' | 'closed';
+
+export interface Quiz {
+  id: string;
+  courseId: string;
+  title: string;
+  description: string;
+  durationMinutes: number;
+  maxMarks: number;
+  maxAttempts: number;
+  status: QuizStatus;
+  startsAt: Date | null;
+  endsAt: Date | null;
+  resultsReleasedAt: Date | null;
+  showMarks: boolean;
+  showCorrectAnswers: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ReleaseQuizResultsInput {
+  showMarks: boolean;
+  showCorrectAnswers: boolean;
+}
+
+export interface QuizRepository {
+  create(input: CreateQuizInput): Promise<Quiz>;
+  findAllByCourseId(courseId: string): Promise<Quiz[]>;
+  findById(id: string): Promise<Quiz | undefined>;
+  update(id: string, input: UpdateQuizInput): Promise<Quiz | undefined>;
+
+  countQuestions(id: string): Promise<number>;
+  publish(id: string): Promise<Quiz | undefined>;
+
+  releaseResults(
+    id: string,
+    input: ReleaseQuizResultsInput,
+  ): Promise<Quiz | undefined>;
+
+  delete(id: string): Promise<boolean>;
+}
+
+
+
+========== src/modules/quizzes/quiz.service.ts ==========
+
+
+import { AppError } from '../../errors/app-error.js';
+import type { CourseRepository } from '../courses/course.repository.interface.js';
+
+import type {
+  CreateQuizInput,
+  UpdateQuizInput,
+  ReleaseQuizResultsInput,
+} from './quiz.schema.js';
+import type { Quiz, QuizRepository } from './quiz.repository.interface.js';
+
+type QuizReader = {
+  role: 'admin' | 'faculty' | 'student';
+};
+
+export class QuizService {
+  constructor(
+    private readonly quizRepository: QuizRepository,
+    private readonly courseRepository: CourseRepository,
+  ) {}
+
+  async create(input: CreateQuizInput): Promise<Quiz> {
+    const course = await this.courseRepository.findById(input.courseId);
+
+    if (!course) {
+      throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
+    }
+
+    return this.quizRepository.create(input);
+  }
+
+  async getAllByCourseId(courseId: string, user: QuizReader): Promise<Quiz[]> {
+    const course = await this.courseRepository.findById(courseId);
+
+    if (!course) {
+      throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
+    }
+
+    const quizzes = await this.quizRepository.findAllByCourseId(courseId);
+
+    if (user.role !== 'student') {
+      return quizzes;
+    }
+
+    return quizzes
+      .filter((quiz) => quiz.status === 'published')
+      .map((quiz) => this.forStudent(quiz));
+  }
+
+  async getById(id: string, user: QuizReader): Promise<Quiz> {
+    const quiz = await this.quizRepository.findById(id);
+
+    if (!quiz) {
+      throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
+    }
+
+    if (user.role === 'student' && quiz.status !== 'published') {
+      throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
+    }
+
+    return user.role === 'student' ? this.forStudent(quiz) : quiz;
+  }
+
+  async update(id: string, input: UpdateQuizInput): Promise<Quiz> {
+    const quiz = await this.quizRepository.update(id, input);
+
+    if (!quiz) {
+      throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
+    }
+
+    return quiz;
+  }
+
+  async publish(id: string): Promise<Quiz> {
+    const quiz = await this.quizRepository.findById(id);
+
+    if (!quiz) {
+      throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
+    }
+
+    const questionCount = await this.quizRepository.countQuestions(id);
+
+    if (questionCount === 0) {
+      throw new AppError(
+        'Cannot publish a quiz without questions',
+        400,
+        'QUIZ_HAS_NO_QUESTIONS',
+      );
+    }
+
+    const publishedQuiz = await this.quizRepository.publish(id);
+
+    if (!publishedQuiz) {
+      throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
+    }
+
+    return publishedQuiz;
+  }
+
+  async releaseResults(
+    id: string,
+    input: ReleaseQuizResultsInput,
+  ): Promise<Quiz> {
+    const quiz = await this.quizRepository.releaseResults(id, input);
+
+    if (!quiz) {
+      throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
+    }
+
+    return quiz;
+  }
+
+  async delete(id: string): Promise<void> {
+    const deleted = await this.quizRepository.delete(id);
+
+    if (!deleted) {
+      throw new AppError('Quiz not found', 404, 'QUIZ_NOT_FOUND');
+    }
+  }
+
+  private forStudent(quiz: Quiz): Quiz {
+    return {
+      ...quiz,
+      showMarks: quiz.resultsReleasedAt !== null && quiz.showMarks,
+      showCorrectAnswers:
+        quiz.resultsReleasedAt !== null && quiz.showCorrectAnswers,
+    };
+  }
+}
+
+
+
+========== src/modules/quizzes/quiz.routes.ts ==========
+
+import type { FastifyInstance } from 'fastify';
+
+import { AppError } from '../../errors/app-error.js';
+import { authenticate } from '../../middleware/authenticate.js';
+import { authorize } from '../../middleware/authorize.js';
+
+import {
+  createQuizSchema,
+  updateQuizSchema,
+  releaseQuizResultsSchema,
+} from './quiz.schema.js';
+
+import type { QuizService } from './quiz.service.js';
+
+type QuizRouteUser = {
+  role: 'admin' | 'faculty' | 'student';
+};
+
+export async function quizRoutes(
+  app: FastifyInstance,
+  service: QuizService,
+): Promise<void> {
+  // Create a quiz
+  app.post(
+    '/quizzes',
+    {
+      preHandler: [authenticate, authorize('faculty', 'admin')],
+    },
+    async (request, reply) => {
+      const parsed = createQuizSchema.safeParse(request.body);
+
+      if (!parsed.success) {
+        throw new AppError('Invalid quiz data', 400, 'VALIDATION_ERROR');
+      }
+
+      const quiz = await service.create(parsed.data);
+
+      return reply.code(201).send({
+        success: true,
+        data: quiz,
+      });
+    },
+  );
+
+  // Publish a quiz: Faculty and Admin only
+  app.post(
+    '/quizzes/:id/publish',
+    {
+      preHandler: [authenticate, authorize('faculty', 'admin')],
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+
+      if (!isUuid(id)) {
+        throw new AppError('Invalid quiz ID', 400, 'VALIDATION_ERROR');
+      }
+
+      const quiz = await service.publish(id);
+
+      return reply.code(200).send({
+        success: true,
+        data: quiz,
+      });
+    },
+  );
+
+  // Get quizzes for a course
+  app.get(
+    '/courses/:courseId/quizzes',
+    {
+      preHandler: [authenticate],
+    },
+    async (request, reply) => {
+      const { courseId } = request.params as { courseId: string };
+
+      if (!isUuid(courseId)) {
+        throw new AppError('Invalid course ID', 400, 'VALIDATION_ERROR');
+      }
+
+      const user = request.user as QuizRouteUser;
+      const quizzes = await service.getAllByCourseId(courseId, user);
+
+      return reply.code(200).send({
+        success: true,
+        data: quizzes,
+      });
+    },
+  );
+
+  // Get a quiz by ID
+  app.get(
+    '/quizzes/:id',
+    {
+      preHandler: [authenticate],
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+
+      if (!isUuid(id)) {
+        throw new AppError('Invalid quiz ID', 400, 'VALIDATION_ERROR');
+      }
+
+      const user = request.user as QuizRouteUser;
+      const quiz = await service.getById(id, user);
+
+      return reply.code(200).send({
+        success: true,
+        data: quiz,
+      });
+    },
+  );
+
+  // Update a quiz
+  app.patch(
+    '/quizzes/:id',
+    {
+      preHandler: [authenticate, authorize('faculty', 'admin')],
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+
+      if (!isUuid(id)) {
+        throw new AppError('Invalid quiz ID', 400, 'VALIDATION_ERROR');
+      }
+
+      const parsed = updateQuizSchema.safeParse(request.body);
+
+      if (!parsed.success) {
+        throw new AppError('Invalid quiz data', 400, 'VALIDATION_ERROR');
+      }
+
+      const quiz = await service.update(id, parsed.data);
+
+      return reply.code(200).send({
+        success: true,
+        data: quiz,
+      });
+    },
+  );
+
+  // Release quiz results
+  app.post(
+    '/quizzes/:id/release-results',
+    {
+      preHandler: [authenticate, authorize('faculty', 'admin')],
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+
+      if (!isUuid(id)) {
+        throw new AppError('Invalid quiz ID', 400, 'VALIDATION_ERROR');
+      }
+
+      const parsed = releaseQuizResultsSchema.safeParse(request.body);
+
+      if (!parsed.success) {
+        throw new AppError(
+          'Invalid result release data',
+          400,
+          'VALIDATION_ERROR',
+        );
+      }
+
+      const quiz = await service.releaseResults(id, parsed.data);
+
+      return reply.code(200).send({
+        success: true,
+        data: quiz,
+      });
+    },
+  );
+
+  // Delete a quiz: Admin only
+  app.delete(
+    '/quizzes/:id',
+    {
+      preHandler: [authenticate, authorize('admin')],
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+
+      if (!isUuid(id)) {
+        throw new AppError('Invalid quiz ID', 400, 'VALIDATION_ERROR');
+      }
+
+      await service.delete(id);
+
+      return reply.code(200).send({
+        success: true,
+        message: 'Quiz deleted successfully',
+      });
+    },
+  );
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}
+
+
+
+========== src/app.ts ==========
+
+import Fastify from 'fastify';
+import jwt from '@fastify/jwt';
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
+import rateLimit from '@fastify/rate-limit';
+
+import { errorHandler } from './errors/error-handler.js';
+import { createContainer } from './container.js';
+
+// Routes
+import { courseRoutes } from './modules/courses/course.routes.js';
+import { studentRoutes } from './modules/students/student.routes.js';
+import { enrollmentRoutes } from './modules/enrollments/enrollment.routes.js';
+import { assignmentRoutes } from './modules/assignments/assignment.routes.js';
+import { submissionRoutes } from './modules/submissions/submission.routes.js';
+import { authRoutes } from './modules/auth/auth.routes.js';
+import { quizRoutes } from './modules/quizzes/quiz.routes.js';
+import { quizAttemptRoutes } from './modules/quiz-attempts/quiz-attempt.routes.js';
+
+type AppContainer = Pick<
+  ReturnType<typeof createContainer>,
+  | 'courseService'
+  | 'studentService'
+  | 'enrollmentService'
+  | 'assignmentService'
+  | 'submissionService'
+  | 'authService'
+  | 'quizService'
+  | 'quizAttemptService'
+>;
+
+export function buildApp(container: AppContainer) {
+  const app = Fastify({
+    logger: true,
+  });
+
+  // Swagger / OpenAPI
+  app.register(swagger, {
+    openapi: {
+      info: {
+        title: 'Smart Campus LMS API',
+        description:
+          'Backend API for the Smart Campus Learning Management System',
+        version: '1.0.0',
+      },
+      servers: [
+        {
+          url: 'http://localhost:3000',
+          description: 'Local development server',
+        },
+      ],
+      tags: [
+        { name: 'Health', description: 'System health endpoints' },
+        {
+          name: 'Authentication',
+          description: 'Authentication endpoints',
+        },
+        {
+          name: 'Courses',
+          description: 'Course management endpoints',
+        },
+        {
+          name: 'Students',
+          description: 'Student management endpoints',
+        },
+        {
+          name: 'Enrollments',
+          description: 'Course enrollment endpoints',
+        },
+        {
+          name: 'Assignments',
+          description: 'Assignment management endpoints',
+        },
+        {
+          name: 'Submissions',
+          description: 'Assignment submission endpoints',
+        },
+        {
+          name: 'Quizzes',
+          description: 'Quiz management endpoints',
+        },
+        {
+          name: 'Quiz Attempts',
+          description:
+            'Starting quizzes, answering questions, and submitting attempts',
+        },
+      ],
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: 'http',
+            scheme: 'bearer',
+            bearerFormat: 'JWT',
+          },
+        },
+      },
+    },
+  });
+
+  app.register(swaggerUi, {
+    routePrefix: '/docs',
+  });
+
+  // JWT configuration
+  app.register(jwt, {
+    secret:
+      process.env.JWT_SECRET ??
+      'development-only-secret-change-before-deployment',
+    sign: {
+      expiresIn: '1h',
+    },
+  });
+
+  // Global rate limiting
+  app.register(rateLimit, {
+    max: 100,
+    timeWindow: '1 minute',
+    global: process.env.NODE_ENV !== 'test',
+    errorResponseBuilder: (_request, context) => ({
+      success: false,
+      error: {
+        code: 'RATE_LIMIT_EXCEEDED',
+        message: `Too many requests. Try again in ${Math.ceil(
+          context.ttl / 1000,
+        )} seconds.`,
+      },
+    }),
+  });
+
+  // Global error handler
+  app.setErrorHandler(errorHandler);
+
+  // Dependency container
+  const {
+    courseService,
+    studentService,
+    enrollmentService,
+    assignmentService,
+    submissionService,
+    authService,
+    quizService,
+    quizAttemptService,
+  } = container;
+
+  // Health check
+  app.get(
+    '/health',
+    {
+      schema: {
+        tags: ['Health'],
+        summary: 'Check API health',
+      },
+    },
+    async () => ({
+      success: true,
+      message: 'Service is healthy',
+      data: {
+        service: 'smart-campus-lms',
+        status: 'ok',
+      },
+    }),
+  );
+
+  // Course routes
+  app.register(courseRoutes, {
+    service: courseService,
+  });
+
+  // Student routes
+  app.register(studentRoutes, {
+    service: studentService,
+  });
+
+  // Enrollment routes
+  app.register(enrollmentRoutes, {
+    service: enrollmentService,
+  });
+
+  // Assignment routes
+  app.register(assignmentRoutes, {
+    service: assignmentService,
+  });
+
+  // Submission routes
+  app.register(submissionRoutes, {
+    service: submissionService,
+  });
+
+  // Quiz routes
+  app.register(async (quizApp) => {
+    await quizRoutes(quizApp, quizService);
+  });
+
+  // Quiz attempt routes
+  app.register(async (attemptApp) => {
+    await quizAttemptRoutes(attemptApp, quizAttemptService);
+  });
+
+  // Authentication routes
+  app.register(authRoutes, {
+    prefix: '/auth',
+    service: authService,
+  });
+
+  return app;
+}
+
+
+
+========== src/test-container.ts ==========
+
+import { InMemoryAssignmentRepository } from './modules/assignments/assignment.repository.js';
+import { createAssignmentService } from './modules/assignments/assignment.service.js';
+
+import { InMemoryAuthRepository } from './modules/auth/auth.repository.js';
+import { createAuthService } from './modules/auth/auth.service.js';
+
+import { InMemoryCourseRepository } from './modules/courses/course.repository.js';
+import { createCourseService } from './modules/courses/course.service.js';
+
+import { InMemoryEnrollmentRepository } from './modules/enrollments/enrollment.repository.js';
+import { createEnrollmentService } from './modules/enrollments/enrollment.service.js';
+
+import { InMemoryQuizRepository } from './modules/quizzes/quiz.repository.js';
+import { QuizService } from './modules/quizzes/quiz.service.js';
+
+import { InMemoryQuizAttemptRepository } from './modules/quiz-attempts/quiz-attempt.in-memory.repository.js';
+import { QuizAttemptService } from './modules/quiz-attempts/quiz-attempt.service.js';
+
+import { InMemoryStudentRepository } from './modules/students/student.repository.js';
+import { createStudentService } from './modules/students/student.service.js';
+
+import { InMemorySubmissionRepository } from './modules/submissions/submission.repository.js';
+import { createSubmissionService } from './modules/submissions/submission.service.js';
+
+export function createTestContainer() {
+  // Repositories
+  const courseRepository = new InMemoryCourseRepository();
+  const studentRepository = new InMemoryStudentRepository();
+  const enrollmentRepository = new InMemoryEnrollmentRepository();
+  const assignmentRepository = new InMemoryAssignmentRepository();
+  const submissionRepository = new InMemorySubmissionRepository();
+  const authRepository = new InMemoryAuthRepository();
+  const quizRepository = new InMemoryQuizRepository();
+  const quizAttemptRepository = new InMemoryQuizAttemptRepository();
+
+  // Services
+  const courseService = createCourseService(courseRepository);
+
+  const studentService = createStudentService(
+    studentRepository,
+    authRepository,
+  );
+
+  const enrollmentService = createEnrollmentService(
+    enrollmentRepository,
+    studentRepository,
+    courseRepository,
+  );
+
+  const assignmentService = createAssignmentService(
+    assignmentRepository,
+    courseRepository,
+  );
+
+  const submissionService = createSubmissionService(
+    submissionRepository,
+    studentRepository,
+    assignmentRepository,
+  );
+
+  const authService = createAuthService(authRepository);
+
+  const quizService = new QuizService(quizRepository, courseRepository);
+
+  const quizAttemptService = new QuizAttemptService(
+    quizAttemptRepository,
+    quizRepository,
+    enrollmentRepository,
+  );
+
+  return {
+    courseRepository,
+    courseService,
+
+    studentRepository,
+    studentService,
+
+    enrollmentRepository,
+    enrollmentService,
+
+    assignmentRepository,
+    assignmentService,
+
+    submissionRepository,
+    submissionService,
+
+    authRepository,
+    authService,
+
+    quizRepository,
+    quizService,
+
+    quizAttemptRepository,
+    quizAttemptService,
+  };
+}
+
+
+
+========== tests/quiz.routes.test.ts ==========
+
+
+import { randomUUID } from 'node:crypto';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { buildApp } from '../src/app.js';
+import { createTestContainer } from '../src/test-container.js';
+
+describe('Quiz Routes', () => {
+  let app: ReturnType<typeof buildApp>;
+  let courseId: string;
+  let facultyToken: string;
+  let adminToken: string;
+  let studentToken: string;
+
+  const validQuiz = () => ({
+    courseId,
+    title: 'Data Structures Quiz',
+    description: 'Assessment covering arrays and linked lists',
+    durationMinutes: 30,
+    maxMarks: 20,
+    maxAttempts: 2,
+  });
+
+  beforeEach(async () => {
+    app = buildApp(createTestContainer());
+    await app.ready();
+
+    facultyToken = app.jwt.sign({
+      sub: 'faculty-test-id',
+      role: 'faculty',
+    });
+
+    adminToken = app.jwt.sign({
+      sub: 'admin-test-id',
+      role: 'admin',
+    });
+
+    studentToken = app.jwt.sign({
+      sub: 'student-test-id',
+      role: 'student',
+    });
+
+    const courseResponse = await app.inject({
+      method: 'POST',
+      url: '/courses',
+      headers: {
+        authorization: `Bearer ${facultyToken}`,
+      },
+      payload: {
+        title: 'Data Structures',
+        code: `CS${Math.floor(Math.random() * 9000) + 1000}`,
+        credits: 4,
+      },
+    });
+
+    expect(courseResponse.statusCode).toBe(201);
+    courseId = courseResponse.json().data.id;
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it('should reject publishing a draft quiz without questions', async () => {
+    const created = await app.inject({
+      method: 'POST',
+      url: '/quizzes',
+      headers: { authorization: `Bearer ${facultyToken}` },
+      payload: validQuiz(),
+    });
+
+    expect(created.statusCode).toBe(201);
+
+    const quizId = created.json().data.id;
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/quizzes/${quizId}/publish`,
+      headers: { authorization: `Bearer ${facultyToken}` },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('QUIZ_HAS_NO_QUESTIONS');
+
+    const quizResponse = await app.inject({
+      method: 'GET',
+      url: `/quizzes/${quizId}`,
+      headers: { authorization: `Bearer ${facultyToken}` },
+    });
+
+    expect(quizResponse.statusCode).toBe(200);
+    expect(quizResponse.json().data.status).toBe('draft');
+  });
+
+  it('should reject publishing a quiz without questions', async () => {
+    const created = await app.inject({
+      method: 'POST',
+      url: '/quizzes',
+      headers: { authorization: `Bearer ${facultyToken}` },
+      payload: validQuiz(),
+    });
+
+    expect(created.statusCode).toBe(201);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/quizzes/${created.json().data.id}/publish`,
+      headers: { authorization: `Bearer ${facultyToken}` },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('QUIZ_HAS_NO_QUESTIONS');
+  });
+
+  it('should reject quiz publishing by a student', async () => {
+    const created = await app.inject({
+      method: 'POST',
+      url: '/quizzes',
+      headers: { authorization: `Bearer ${facultyToken}` },
+      payload: validQuiz(),
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/quizzes/${created.json().data.id}/publish`,
+      headers: { authorization: `Bearer ${studentToken}` },
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  it('should return 404 when publishing a nonexistent quiz', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: `/quizzes/${randomUUID()}/publish`,
+      headers: { authorization: `Bearer ${facultyToken}` },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error.code).toBe('QUIZ_NOT_FOUND');
+  });
+
+  it('should create a quiz', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/quizzes',
+      headers: { authorization: `Bearer ${facultyToken}` },
+      payload: validQuiz(),
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json().data.title).toBe('Data Structures Quiz');
+  });
+
+  it('should reject quiz creation without authentication', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/quizzes',
+      payload: validQuiz(),
+    });
+
+    expect(response.statusCode).toBe(401);
+  });
+
+  it('should reject quiz creation by a student', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/quizzes',
+      headers: { authorization: `Bearer ${studentToken}` },
+      payload: validQuiz(),
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  it('should reject invalid quiz input', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/quizzes',
+      headers: { authorization: `Bearer ${facultyToken}` },
+      payload: {
+        ...validQuiz(),
+        title: 'A',
+        durationMinutes: -1,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('should reject a quiz for a nonexistent course', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/quizzes',
+      headers: { authorization: `Bearer ${facultyToken}` },
+      payload: { ...validQuiz(), courseId: randomUUID() },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error.code).toBe('COURSE_NOT_FOUND');
+  });
+
+  it('should retrieve a quiz by ID', async () => {
+    const created = await app.inject({
+      method: 'POST',
+      url: '/quizzes',
+      headers: { authorization: `Bearer ${facultyToken}` },
+      payload: validQuiz(),
+    });
+
+    const id = created.json().data.id;
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/quizzes/${id}`,
+      headers: { authorization: `Bearer ${facultyToken}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data.id).toBe(id);
+  });
+
+  it('should reject retrieval without authentication', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: `/quizzes/${randomUUID()}`,
+    });
+
+    expect(response.statusCode).toBe(401);
+  });
+
+  it('should return 404 for a nonexistent quiz', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: `/quizzes/${randomUUID()}`,
+      headers: { authorization: `Bearer ${facultyToken}` },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error.code).toBe('QUIZ_NOT_FOUND');
+  });
+
+  it('should list quizzes for a course', async () => {
+    await app.inject({
+      method: 'POST',
+      url: '/quizzes',
+      headers: { authorization: `Bearer ${facultyToken}` },
+      payload: validQuiz(),
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/courses/${courseId}/quizzes`,
+      headers: { authorization: `Bearer ${facultyToken}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data).toHaveLength(1);
+  });
+
+  it('should reject an invalid course ID', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/courses/not-a-uuid/quizzes',
+      headers: { authorization: `Bearer ${facultyToken}` },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it('should update a quiz', async () => {
+    const created = await app.inject({
+      method: 'POST',
+      url: '/quizzes',
+      headers: { authorization: `Bearer ${facultyToken}` },
+      payload: validQuiz(),
+    });
+
+    const id = created.json().data.id;
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: `/quizzes/${id}`,
+      headers: { authorization: `Bearer ${facultyToken}` },
+      payload: { title: 'Updated Quiz Title' },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data.title).toBe('Updated Quiz Title');
+  });
+
+  it('should reject quiz updates by a student', async () => {
+    const response = await app.inject({
+      method: 'PATCH',
+      url: `/quizzes/${randomUUID()}`,
+      headers: { authorization: `Bearer ${studentToken}` },
+      payload: { title: 'Updated Quiz Title' },
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  it('should reject invalid quiz updates', async () => {
+    const created = await app.inject({
+      method: 'POST',
+      url: '/quizzes',
+      headers: { authorization: `Bearer ${facultyToken}` },
+      payload: validQuiz(),
+    });
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: `/quizzes/${created.json().data.id}`,
+      headers: { authorization: `Bearer ${facultyToken}` },
+      payload: { title: 'A' },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it('should return 404 when updating a nonexistent quiz', async () => {
+    const response = await app.inject({
+      method: 'PATCH',
+      url: `/quizzes/${randomUUID()}`,
+      headers: { authorization: `Bearer ${facultyToken}` },
+      payload: { title: 'Updated Quiz Title' },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error.code).toBe('QUIZ_NOT_FOUND');
+  });
+
+  it('should delete a quiz as admin', async () => {
+    const created = await app.inject({
+      method: 'POST',
+      url: '/quizzes',
+      headers: { authorization: `Bearer ${facultyToken}` },
+      payload: validQuiz(),
+    });
+
+    const id = created.json().data.id;
+
+    const response = await app.inject({
+      method: 'DELETE',
+      url: `/quizzes/${id}`,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+  });
+
+  it('should reject quiz deletion by faculty', async () => {
+    const response = await app.inject({
+      method: 'DELETE',
+      url: `/quizzes/${randomUUID()}`,
+      headers: { authorization: `Bearer ${facultyToken}` },
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  it('should return 404 when deleting a nonexistent quiz', async () => {
+    const response = await app.inject({
+      method: 'DELETE',
+      url: `/quizzes/${randomUUID()}`,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error.code).toBe('QUIZ_NOT_FOUND');
+  });
+});
+
+
+
+========== package.json ==========
+
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "Smart Campus LMS backend",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "postinstall": "prisma skills sync || exit 0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@fastify/jwt": "^10.2.2",
+    "@fastify/rate-limit": "^11.2.1",
+    "@fastify/swagger": "^9.9.1",
+    "@fastify/swagger-ui": "^6.1.1",
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
+    "@types/node": "^26.6.3",
+    "bcrypt": "^6.0.0",
+    "fastify": "^5.12.5",
+    "pg": "^8.23.1",
+    "prisma": "^7.10.0",
+    "tsx": "^4.23.15",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/bcrypt": "^6.0.0",
+    "@types/pg": "^8.23.1",
+    "eslint": "^10.11.0",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.9",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^5.0.3"
+  }
+}
+

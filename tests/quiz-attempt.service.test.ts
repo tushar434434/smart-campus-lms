@@ -1,3 +1,4 @@
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { QuizAttemptService } from '../src/modules/quiz-attempts/quiz-attempt.service.js';
 
@@ -26,9 +27,14 @@ describe('QuizAttemptService', () => {
     durationMinutes: 30,
     maxMarks: 20,
     maxAttempts: 2,
-    status: 'published',
+    status: 'published' as const,
     startsAt: null,
     endsAt: null,
+    resultsReleasedAt: null,
+    showMarks: false,
+    showCorrectAnswers: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
   };
 
   const attempt: QuizAttempt = {
@@ -50,6 +56,7 @@ describe('QuizAttemptService', () => {
       findById: vi.fn(),
       findQuestions: vi.fn(),
       saveAnswer: vi.fn(),
+      findAnswersByAttemptId: vi.fn().mockResolvedValue([]),
       submit: vi.fn(),
     };
 
@@ -58,7 +65,9 @@ describe('QuizAttemptService', () => {
     } as unknown as QuizRepository;
 
     enrollments = {
-      findByStudentAndCourse: vi.fn().mockResolvedValue({ id: 'enrollment-1' }),
+      findByStudentAndCourse: vi
+        .fn()
+        .mockResolvedValue({ id: 'enrollment-1' }),
     } as unknown as EnrollmentRepository;
 
     service = new QuizAttemptService(attempts, quizzes, enrollments);
@@ -70,6 +79,7 @@ describe('QuizAttemptService', () => {
     await expect(service.start(quizId, studentId)).rejects.toThrow(
       'NOT_ENROLLED',
     );
+
     expect(attempts.start).not.toHaveBeenCalled();
   });
 
@@ -82,6 +92,7 @@ describe('QuizAttemptService', () => {
     await expect(service.getQuestions(attemptId, studentId)).rejects.toThrow(
       'FORBIDDEN',
     );
+
     expect(attempts.findQuestions).not.toHaveBeenCalled();
   });
 
@@ -93,7 +104,11 @@ describe('QuizAttemptService', () => {
 
     await expect(
       service.saveAnswer(
-        { attemptId, questionId: 'question-123', selectedOption: 'A' },
+        {
+          attemptId,
+          questionId: 'question-123',
+          selectedOption: 'A',
+        },
         studentId,
       ),
     ).rejects.toThrow('ATTEMPT_ALREADY_SUBMITTED');
@@ -118,7 +133,11 @@ describe('QuizAttemptService', () => {
       'QUIZ_TIME_EXPIRED',
     );
 
-    expect(attempts.submit).toHaveBeenCalledWith(attemptId, 'auto_submitted');
+    expect(attempts.submit).toHaveBeenCalledWith(
+      attemptId,
+      'auto_submitted',
+    );
+
     expect(attempts.findQuestions).not.toHaveBeenCalled();
   });
 
@@ -138,6 +157,74 @@ describe('QuizAttemptService', () => {
     const result = await service.submit(attemptId, studentId);
 
     expect(result.status).toBe('auto_submitted');
-    expect(attempts.submit).toHaveBeenCalledWith(attemptId, 'auto_submitted');
+    expect(result.score).toBeNull();
+
+    expect(attempts.submit).toHaveBeenCalledWith(
+      attemptId,
+      'auto_submitted',
+    );
+  });
+
+  it('hides the score when results have not been released', async () => {
+    vi.mocked(attempts.findById).mockResolvedValue(attempt);
+
+    vi.mocked(attempts.submit).mockResolvedValue({
+      ...attempt,
+      status: 'submitted',
+      submittedAt: new Date(),
+      score: 15,
+    });
+
+    vi.mocked(quizzes.findById).mockResolvedValue({
+      ...quiz,
+      resultsReleasedAt: null,
+      showMarks: true,
+    });
+
+    const result = await service.submit(attemptId, studentId);
+
+    expect(result.score).toBeNull();
+  });
+
+  it('hides the score when marks are disabled', async () => {
+    vi.mocked(attempts.findById).mockResolvedValue(attempt);
+
+    vi.mocked(attempts.submit).mockResolvedValue({
+      ...attempt,
+      status: 'submitted',
+      submittedAt: new Date(),
+      score: 15,
+    });
+
+    vi.mocked(quizzes.findById).mockResolvedValue({
+      ...quiz,
+      resultsReleasedAt: new Date(),
+      showMarks: false,
+    });
+
+    const result = await service.submit(attemptId, studentId);
+
+    expect(result.score).toBeNull();
+  });
+
+  it('shows the score when results are released and marks are enabled', async () => {
+    vi.mocked(attempts.findById).mockResolvedValue(attempt);
+
+    vi.mocked(attempts.submit).mockResolvedValue({
+      ...attempt,
+      status: 'submitted',
+      submittedAt: new Date(),
+      score: 15,
+    });
+
+    vi.mocked(quizzes.findById).mockResolvedValue({
+      ...quiz,
+      resultsReleasedAt: new Date(),
+      showMarks: true,
+    });
+
+    const result = await service.submit(attemptId, studentId);
+
+    expect(result.score).toBe(15);
   });
 });

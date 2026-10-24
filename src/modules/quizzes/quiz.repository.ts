@@ -1,16 +1,22 @@
-
 import { randomUUID } from 'node:crypto';
 
-import type { CreateQuizInput, UpdateQuizInput } from './quiz.schema.js';
+import type {
+  CreateQuizInput,
+  CreateQuizQuestionInput,
+  UpdateQuizInput,
+  UpdateQuizQuestionInput,
+} from './quiz.schema.js';
+
 import type {
   Quiz,
+  QuizQuestion,
   QuizRepository,
   ReleaseQuizResultsInput,
 } from './quiz.repository.interface.js';
 
 export class InMemoryQuizRepository implements QuizRepository {
   private readonly quizzes = new Map<string, Quiz>();
-  private readonly questionCounts = new Map<string, number>();
+  private readonly questions = new Map<string, QuizQuestion>();
 
   async create(input: CreateQuizInput): Promise<Quiz> {
     const now = new Date();
@@ -34,8 +40,6 @@ export class InMemoryQuizRepository implements QuizRepository {
     };
 
     this.quizzes.set(quiz.id, quiz);
-    this.questionCounts.set(quiz.id, 0);
-
     return { ...quiz };
   }
 
@@ -50,92 +54,155 @@ export class InMemoryQuizRepository implements QuizRepository {
     return quiz ? { ...quiz } : undefined;
   }
 
-  async update(
-    id: string,
-    input: UpdateQuizInput,
-  ): Promise<Quiz | undefined> {
-    const existingQuiz = this.quizzes.get(id);
+  async update(id: string, input: UpdateQuizInput): Promise<Quiz | undefined> {
+    const existing = this.quizzes.get(id);
+    if (!existing) return undefined;
 
-    if (!existingQuiz) {
-      return undefined;
-    }
-
-    const updatedQuiz: Quiz = {
-      ...existingQuiz,
-      title: input.title ?? existingQuiz.title,
-      description: input.description ?? existingQuiz.description,
-      durationMinutes: input.durationMinutes ?? existingQuiz.durationMinutes,
-      maxMarks: input.maxMarks ?? existingQuiz.maxMarks,
-      maxAttempts: input.maxAttempts ?? existingQuiz.maxAttempts,
+    const updated: Quiz = {
+      ...existing,
+      title: input.title ?? existing.title,
+      description: input.description ?? existing.description,
+      durationMinutes: input.durationMinutes ?? existing.durationMinutes,
+      maxMarks: input.maxMarks ?? existing.maxMarks,
+      maxAttempts: input.maxAttempts ?? existing.maxAttempts,
       startsAt:
         input.startsAt === undefined
-          ? existingQuiz.startsAt
+          ? existing.startsAt
           : input.startsAt === null
             ? null
             : new Date(input.startsAt),
       endsAt:
         input.endsAt === undefined
-          ? existingQuiz.endsAt
+          ? existing.endsAt
           : input.endsAt === null
             ? null
             : new Date(input.endsAt),
-      showMarks: input.showMarks ?? existingQuiz.showMarks,
+      showMarks: input.showMarks ?? existing.showMarks,
       showCorrectAnswers:
-        input.showCorrectAnswers ?? existingQuiz.showCorrectAnswers,
+        input.showCorrectAnswers ?? existing.showCorrectAnswers,
       updatedAt: new Date(),
     };
 
-    this.quizzes.set(id, updatedQuiz);
-    return { ...updatedQuiz };
+    this.quizzes.set(id, updated);
+    return { ...updated };
   }
 
-  async countQuestions(id: string): Promise<number> {
-    return this.questionCounts.get(id) ?? 0;
+  async countQuestions(quizId: string): Promise<number> {
+    return Array.from(this.questions.values()).filter(
+      (question) => question.quizId === quizId,
+    ).length;
   }
 
   async publish(id: string): Promise<Quiz | undefined> {
-    const existingQuiz = this.quizzes.get(id);
+    const existing = this.quizzes.get(id);
+    if (!existing) return undefined;
 
-    if (!existingQuiz) {
-      return undefined;
-    }
-
-    const publishedQuiz: Quiz = {
-      ...existingQuiz,
+    const published: Quiz = {
+      ...existing,
       status: 'published',
       updatedAt: new Date(),
     };
 
-    this.quizzes.set(id, publishedQuiz);
-    return { ...publishedQuiz };
+    this.quizzes.set(id, published);
+    return { ...published };
   }
 
   async releaseResults(
     id: string,
     input: ReleaseQuizResultsInput,
   ): Promise<Quiz | undefined> {
-    const existingQuiz = this.quizzes.get(id);
+    const existing = this.quizzes.get(id);
+    if (!existing) return undefined;
 
-    if (!existingQuiz) {
-      return undefined;
-    }
-
-    const now = new Date();
-
-    const updatedQuiz: Quiz = {
-      ...existingQuiz,
-      resultsReleasedAt: now,
+    const updated: Quiz = {
+      ...existing,
+      resultsReleasedAt: new Date(),
       showMarks: input.showMarks,
       showCorrectAnswers: input.showCorrectAnswers,
-      updatedAt: now,
+      updatedAt: new Date(),
     };
 
-    this.quizzes.set(id, updatedQuiz);
-    return { ...updatedQuiz };
+    this.quizzes.set(id, updated);
+    return { ...updated };
   }
 
   async delete(id: string): Promise<boolean> {
-    this.questionCounts.delete(id);
-    return this.quizzes.delete(id);
+    if (!this.quizzes.has(id)) return false;
+
+    this.quizzes.delete(id);
+
+    for (const [questionId, question] of this.questions) {
+      if (question.quizId === id) {
+        this.questions.delete(questionId);
+      }
+    }
+
+    return true;
+  }
+
+  async createQuestion(
+    quizId: string,
+    input: CreateQuizQuestionInput,
+  ): Promise<QuizQuestion | undefined> {
+    if (!this.quizzes.has(quizId)) return undefined;
+
+    const question: QuizQuestion = {
+      id: randomUUID(),
+      quizId,
+      questionText: input.questionText,
+      optionA: input.optionA,
+      optionB: input.optionB,
+      optionC: input.optionC,
+      optionD: input.optionD,
+      correctOption: input.correctOption,
+      marks: input.marks,
+    };
+
+    this.questions.set(question.id, question);
+    return { ...question };
+  }
+
+  async findQuestionsByQuizId(quizId: string): Promise<QuizQuestion[]> {
+    return Array.from(this.questions.values())
+      .filter((question) => question.quizId === quizId)
+      .map((question) => ({ ...question }));
+  }
+
+  async updateQuestion(
+    quizId: string,
+    questionId: string,
+    input: UpdateQuizQuestionInput,
+  ): Promise<QuizQuestion | undefined> {
+    const existing = this.questions.get(questionId);
+
+    if (!existing || existing.quizId !== quizId) {
+      return undefined;
+    }
+
+    const updated: QuizQuestion = {
+      ...existing,
+      ...(input.questionText !== undefined
+        ? { questionText: input.questionText }
+        : {}),
+      ...(input.optionA !== undefined ? { optionA: input.optionA } : {}),
+      ...(input.optionB !== undefined ? { optionB: input.optionB } : {}),
+      ...(input.optionC !== undefined ? { optionC: input.optionC } : {}),
+      ...(input.optionD !== undefined ? { optionD: input.optionD } : {}),
+      ...(input.correctOption !== undefined
+        ? { correctOption: input.correctOption }
+        : {}),
+      ...(input.marks !== undefined ? { marks: input.marks } : {}),
+    };
+
+    this.questions.set(questionId, updated);
+    return { ...updated };
+  }
+
+  async deleteQuestion(quizId: string, questionId: string): Promise<boolean> {
+    const existing = this.questions.get(questionId);
+
+    if (!existing || existing.quizId !== quizId) return false;
+
+    return this.questions.delete(questionId);
   }
 }
