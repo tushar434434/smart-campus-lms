@@ -1,4 +1,4 @@
-﻿import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { QuizAttemptService } from '../src/modules/quiz-attempts/quiz-attempt.service.js';
 
 import type {
@@ -153,7 +153,7 @@ describe('QuizAttemptService', () => {
     expect(attempts.recordProctoringEvent).not.toHaveBeenCalled();
   });
 
-  it('rejects proctoring events for another student’s attempt', async () => {
+  it('rejects proctoring events for another student�s attempt', async () => {
     vi.mocked(attempts.findById).mockResolvedValue({
       ...attempt,
       studentId: 'another-student',
@@ -169,7 +169,7 @@ describe('QuizAttemptService', () => {
     expect(attempts.recordProctoringEvent).not.toHaveBeenCalled();
   });
 
-  it('prevents a student from accessing another studentâ€™s attempt', async () => {
+  it('prevents a student from accessing another student’s attempt', async () => {
     vi.mocked(attempts.findById).mockResolvedValue({
       ...attempt,
       studentId: 'another-student',
@@ -304,6 +304,52 @@ describe('QuizAttemptService', () => {
     });
 
     const result = await service.submit(attemptId, studentId);
+
+    expect(result.score).toBe(15);
+  });
+
+  it('rejects retrieving a result before submission', async () => {
+    vi.mocked(attempts.findById).mockResolvedValue(attempt);
+
+    await expect(service.getResult(attemptId, studentId)).rejects.toThrow(
+      'ATTEMPT_NOT_SUBMITTED',
+    );
+  });
+
+  it('hides the result score until results are released', async () => {
+    vi.mocked(attempts.findById).mockResolvedValue({
+      ...attempt,
+      status: 'submitted',
+      submittedAt: new Date(),
+      score: 15,
+    });
+
+    vi.mocked(quizzes.findById).mockResolvedValue({
+      ...quiz,
+      resultsReleasedAt: null,
+      showMarks: true,
+    });
+
+    const result = await service.getResult(attemptId, studentId);
+
+    expect(result.score).toBeNull();
+  });
+
+  it('shows the result score when released and marks are enabled', async () => {
+    vi.mocked(attempts.findById).mockResolvedValue({
+      ...attempt,
+      status: 'submitted',
+      submittedAt: new Date(),
+      score: 15,
+    });
+
+    vi.mocked(quizzes.findById).mockResolvedValue({
+      ...quiz,
+      resultsReleasedAt: new Date(),
+      showMarks: true,
+    });
+
+    const result = await service.getResult(attemptId, studentId);
 
     expect(result.score).toBe(15);
   });

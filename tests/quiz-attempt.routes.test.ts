@@ -1,4 +1,4 @@
-﻿import {
+import {
   afterAll,
   beforeAll,
   beforeEach,
@@ -46,6 +46,7 @@ describe('Quiz attempt routes', () => {
     saveAnswer: vi.fn(),
     recordProctoringEvent: vi.fn(),
     submit: vi.fn(),
+    getResult: vi.fn(),
   };
 
   const studentRepository = {
@@ -335,6 +336,38 @@ describe('Quiz attempt routes', () => {
     );
   });
 
+  it('returns a submitted attempt result', async () => {
+    service.getResult.mockResolvedValue(
+      makeAttempt({
+        status: 'submitted',
+        submittedAt: new Date(),
+        score: null,
+      }),
+    );
+
+    const response = await request('GET', `/attempts/${ATTEMPT_ID}/result`);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().success).toBe(true);
+    expect(response.json().data.status).toBe('submitted');
+    expect(service.getResult).toHaveBeenCalledWith(ATTEMPT_ID, STUDENT_ID);
+  });
+
+  it('rejects an invalid attempt ID when retrieving a result', async () => {
+    const response = await request('GET', '/attempts/not-a-uuid/result');
+
+    expect(response.statusCode).toBe(400);
+    expect(service.getResult).not.toHaveBeenCalled();
+  });
+
+  it('returns 409 when the attempt has not been submitted', async () => {
+    service.getResult.mockRejectedValue(new Error('ATTEMPT_NOT_SUBMITTED'));
+
+    const response = await request('GET', `/attempts/${ATTEMPT_ID}/result`);
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json().error.code).toBe('ATTEMPT_NOT_SUBMITTED');
+  });
   it('rejects submitting an attempt when it belongs to another student', async () => {
     studentRepository.findByUserId.mockResolvedValue({
       id: OTHER_STUDENT_ID,

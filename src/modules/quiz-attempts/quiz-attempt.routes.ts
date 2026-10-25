@@ -51,6 +51,10 @@ const knownErrors: Record<string, { status: number; message: string }> = {
     status: 404,
     message: 'Attempt not found',
   },
+  ATTEMPT_NOT_SUBMITTED: {
+    status: 409,
+    message: 'Attempt has not been submitted',
+  },
   ATTEMPT_ALREADY_SUBMITTED: {
     status: 409,
     message: 'Attempt is no longer active',
