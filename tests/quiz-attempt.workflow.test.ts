@@ -5,7 +5,7 @@ import { createTestContainer } from '../src/test-container.js';
 
 describe('Quiz attempt API workflow', () => {
   const container = createTestContainer();
-  const app: FastifyInstance = buildApp(container);
+  const app: FastifyInstance = buildApp(container as never);
 
   let quizId: string;
   let questionId: string;
@@ -34,6 +34,7 @@ describe('Quiz attempt API workflow', () => {
     studentId = student.id;
 
     const authUser = await container.authRepository.create({
+      name: 'Workflow Test User',
       email: 'workflow-user@example.test',
       passwordHash: 'not-used-in-this-test',
       role: 'student',
@@ -42,9 +43,7 @@ describe('Quiz attempt API workflow', () => {
     userId = authUser.id;
 
     // Link the authenticated user to the student record.
-    await container.studentRepository.update(studentId, {
-      userId,
-    });
+    await container.studentRepository.linkUser(studentId, userId);
 
     await container.enrollmentRepository.create({
       studentId,
