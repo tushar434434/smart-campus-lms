@@ -1,4 +1,3 @@
-
 import { AppError } from '../../errors/app-error.js';
 
 import type { AuthRepository } from '../auth/auth.repository.interface.js';

@@ -54,10 +54,7 @@ describe('Student API', () => {
     return response.json().data;
   }
 
-  async function tokenFor(
-    role: Role,
-    userId?: string,
-  ): Promise<string> {
+  async function tokenFor(role: Role, userId?: string): Promise<string> {
     const user =
       userId === undefined
         ? await createUser(role === 'admin' ? 'faculty' : role)
@@ -77,9 +74,7 @@ describe('Student API', () => {
     };
   }
 
-  async function createStudent(
-    overrides: Partial<StudentInput> = {},
-  ) {
+  async function createStudent(overrides: Partial<StudentInput> = {}) {
     const id = uniqueId();
 
     const payload: StudentInput = {
@@ -114,9 +109,7 @@ describe('Student API', () => {
     return app.inject({
       method: 'PATCH',
       url: `/students/${studentId}/link-user`,
-      headers: token
-        ? { authorization: `Bearer ${token}` }
-        : {},
+      headers: token ? { authorization: `Bearer ${token}` } : {},
       payload: { userId },
     });
   }
@@ -598,19 +591,11 @@ describe('Student API', () => {
     const secondUser = await createUser('student');
     const token = await tokenFor('faculty');
 
-    const firstResponse = await linkStudent(
-      student.id,
-      firstUser.id,
-      token,
-    );
+    const firstResponse = await linkStudent(student.id, firstUser.id, token);
 
     expect(firstResponse.statusCode).toBe(200);
 
-    const secondResponse = await linkStudent(
-      student.id,
-      secondUser.id,
-      token,
-    );
+    const secondResponse = await linkStudent(student.id, secondUser.id, token);
 
     expect(secondResponse.statusCode).toBe(409);
     expect(secondResponse.json().error.code).toBe('STUDENT_ALREADY_LINKED');
@@ -622,19 +607,11 @@ describe('Student API', () => {
     const user = await createUser('student');
     const token = await tokenFor('faculty');
 
-    const firstResponse = await linkStudent(
-      firstStudent.id,
-      user.id,
-      token,
-    );
+    const firstResponse = await linkStudent(firstStudent.id, user.id, token);
 
     expect(firstResponse.statusCode).toBe(200);
 
-    const secondResponse = await linkStudent(
-      secondStudent.id,
-      user.id,
-      token,
-    );
+    const secondResponse = await linkStudent(secondStudent.id, user.id, token);
 
     expect(secondResponse.statusCode).toBe(409);
     expect(secondResponse.json().error.code).toBe('USER_ALREADY_LINKED');
@@ -644,11 +621,7 @@ describe('Student API', () => {
     const student = await createStudent();
     const token = await tokenFor('faculty');
 
-    const response = await linkStudent(
-      student.id,
-      'not-a-valid-uuid',
-      token,
-    );
+    const response = await linkStudent(student.id, 'not-a-valid-uuid', token);
 
     expect(response.statusCode).toBe(400);
     expect(response.json().error.code).toBe('VALIDATION_ERROR');
@@ -682,11 +655,7 @@ describe('Student API', () => {
     const secondStudent = await createStudent();
     const user = await createUser('student');
 
-    await linkStudent(
-      firstStudent.id,
-      user.id,
-      await tokenFor('faculty'),
-    );
+    await linkStudent(firstStudent.id, user.id, await tokenFor('faculty'));
 
     const token = await tokenFor('student', user.id);
 

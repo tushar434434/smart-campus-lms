@@ -20,7 +20,6 @@ describe('Submission Service', () => {
   let service: ReturnType<typeof createSubmissionService>;
 
   const studentUser = { sub: 'user-1', role: 'student' as const };
-  const otherStudentUser = { sub: 'user-2', role: 'student' as const };
   const facultyUser = { sub: 'faculty-1', role: 'faculty' as const };
 
   const submission = {

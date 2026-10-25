@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import type { QuizAttemptService } from './quiz-attempt.service.js';
+import type { StudentRepository } from '../students/student.repository.interface.js';
 
 interface AuthenticatedUser {
   sub: string;
@@ -65,6 +66,10 @@ const knownErrors: Record<string, { status: number; message: string }> = {
     status: 403,
     message: 'Access denied',
   },
+  STUDENT_NOT_LINKED: {
+    status: 403,
+    message: 'Student account is not linked to a student record',
+  },
 };
 
 function parseUser(payload: unknown): AuthenticatedUser | undefined {
@@ -119,6 +124,19 @@ function requireStudent(user: AuthenticatedUser): void {
   }
 }
 
+async function resolveStudentId(
+  user: AuthenticatedUser,
+  studentRepository: StudentRepository,
+): Promise<string> {
+  const student = await studentRepository.findByUserId(user.sub);
+
+  if (!student) {
+    throw new Error('STUDENT_NOT_LINKED');
+  }
+
+  return student.id;
+}
+
 function requestSafeLog(reply: FastifyReply, error: unknown): void {
   reply.log.error({ err: error }, 'Quiz attempt request failed');
 }
@@ -161,6 +179,7 @@ function invalidId(reply: FastifyReply, message: string) {
 export async function quizAttemptRoutes(
   app: FastifyInstance,
   service: QuizAttemptService,
+  studentRepository: StudentRepository,
 ): Promise<void> {
   // Start a quiz attempt.
   app.post<{ Params: { id: string } }>(
@@ -176,7 +195,8 @@ export async function quizAttemptRoutes(
           return invalidId(reply, 'Invalid quiz ID');
         }
 
-        const attempt = await service.start(parsedId.data, user.sub);
+        const studentId = await resolveStudentId(user, studentRepository);
+        const attempt = await service.start(parsedId.data, studentId);
 
         return reply.code(201).send({
           success: true,
@@ -202,7 +222,8 @@ export async function quizAttemptRoutes(
           return invalidId(reply, 'Invalid attempt ID');
         }
 
-        const questions = await service.getQuestions(parsedId.data, user.sub);
+        const studentId = await resolveStudentId(user, studentRepository);
+        const questions = await service.getQuestions(parsedId.data, studentId);
 
         return reply.send({
           success: true,
@@ -241,13 +262,15 @@ export async function quizAttemptRoutes(
         });
       }
 
+      const studentId = await resolveStudentId(user, studentRepository);
+
       await service.saveAnswer(
         {
           attemptId: attemptId.data,
           questionId: questionId.data,
           selectedOption: body.data.selectedOption,
         },
-        user.sub,
+        studentId,
       );
 
       return reply.send({
@@ -273,7 +296,8 @@ export async function quizAttemptRoutes(
           return invalidId(reply, 'Invalid attempt ID');
         }
 
-        const attempt = await service.submit(parsedId.data, user.sub);
+        const studentId = await resolveStudentId(user, studentRepository);
+        const attempt = await service.submit(parsedId.data, studentId);
 
         return reply.send({
           success: true,

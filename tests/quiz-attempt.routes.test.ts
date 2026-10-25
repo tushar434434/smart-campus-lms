@@ -12,6 +12,7 @@ import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.js';
 import type { QuizAttemptService } from '../src/modules/quiz-attempts/quiz-attempt.service.js';
 
+const USER_ID = 'user-123';
 const STUDENT_ID = 'student-123';
 const QUIZ_ID = '11111111-1111-4111-8111-111111111111';
 const ATTEMPT_ID = '22222222-2222-4222-8222-222222222222';
@@ -43,12 +44,21 @@ describe('Quiz attempt routes', () => {
     submit: vi.fn(),
   };
 
+  const studentRepository = {
+    findByUserId: vi.fn().mockResolvedValue({ id: STUDENT_ID }),
+  };
+
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
 
     app = buildApp({
+      prisma: {
+        $queryRaw: async () => [],
+        $disconnect: async () => undefined,
+      },
       courseService: {} as never,
       studentService: {} as never,
+      studentRepository: studentRepository as never,
       enrollmentService: {} as never,
       assignmentService: {} as never,
       submissionService: {} as never,
@@ -66,11 +76,12 @@ describe('Quiz attempt routes', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    studentRepository.findByUserId.mockResolvedValue({ id: STUDENT_ID });
   });
 
   function token(
     role: 'student' | 'faculty' | 'admin' = 'student',
-    sub = STUDENT_ID,
+    sub = USER_ID,
   ): string {
     return app.jwt.sign({ sub, role });
   }
@@ -90,7 +101,7 @@ describe('Quiz attempt routes', () => {
     if (options.authenticated !== false) {
       headers.authorization = `Bearer ${token(
         options.role ?? 'student',
-        options.sub ?? STUDENT_ID,
+        options.sub ?? USER_ID,
       )}`;
     }
 
@@ -131,14 +142,24 @@ describe('Quiz attempt routes', () => {
     expect(service.start).not.toHaveBeenCalled();
   });
 
-  it('starts a quiz attempt', async () => {
+  it('maps the authenticated user ID to the student record ID', async () => {
     service.start.mockResolvedValue(makeAttempt());
 
     const response = await request('POST', `/quizzes/${QUIZ_ID}/attempts`);
 
     expect(response.statusCode).toBe(201);
-    expect(response.json().success).toBe(true);
+    expect(studentRepository.findByUserId).toHaveBeenCalledWith(USER_ID);
     expect(service.start).toHaveBeenCalledWith(QUIZ_ID, STUDENT_ID);
+  });
+
+  it('rejects a student account that is not linked to a student record', async () => {
+    studentRepository.findByUserId.mockResolvedValue(undefined);
+
+    const response = await request('POST', `/quizzes/${QUIZ_ID}/attempts`);
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json().error.code).toBe('STUDENT_NOT_LINKED');
+    expect(service.start).not.toHaveBeenCalled();
   });
 
   it('returns questions without correct answers', async () => {
@@ -209,7 +230,7 @@ describe('Quiz attempt routes', () => {
     expect(service.saveAnswer).not.toHaveBeenCalled();
   });
 
-  it('saves a valid answer', async () => {
+  it('saves a valid answer using the student record ID', async () => {
     service.saveAnswer.mockResolvedValue(undefined);
 
     const response = await request(

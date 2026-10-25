@@ -31,6 +31,7 @@ type AppContainer = Omit<
     | 'prisma'
     | 'courseService'
     | 'studentService'
+    | 'studentRepository'
     | 'enrollmentService'
     | 'assignmentService'
     | 'submissionService'
@@ -162,6 +163,7 @@ export function buildApp(container: AppContainer) {
     prisma,
     courseService,
     studentService,
+    studentRepository,
     enrollmentService,
     assignmentService,
     submissionService,
@@ -230,7 +232,7 @@ export function buildApp(container: AppContainer) {
   });
 
   app.register(async (attemptApp) => {
-    await quizAttemptRoutes(attemptApp, quizAttemptService);
+    await quizAttemptRoutes(attemptApp, quizAttemptService, studentRepository);
   });
 
   app.register(authRoutes, {

@@ -1,4 +1,3 @@
-
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createStudentService } from '../src/modules/students/student.service.js';

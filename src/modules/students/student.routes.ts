@@ -1,4 +1,3 @@
-
 import type { FastifyInstance } from 'fastify';
 
 import { AppError } from '../../errors/app-error.js';
@@ -62,7 +61,8 @@ export async function studentRoutes(
       schema: {
         tags: ['Students'],
         summary: 'List students',
-        description: 'Returns a paginated list of students with optional search.',
+        description:
+          'Returns a paginated list of students with optional search.',
         security: [{ bearerAuth: [] }],
       },
     },
@@ -190,10 +190,7 @@ export async function studentRoutes(
       );
 
       return reply.send(
-        successResponse(
-          'Student linked to user account successfully',
-          student,
-        ),
+        successResponse('Student linked to user account successfully', student),
       );
     },
   );
