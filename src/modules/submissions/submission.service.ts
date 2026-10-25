@@ -171,6 +171,14 @@ export function createSubmissionService(
         }
       }
 
+      if (submission.status === 'graded') {
+        throw new AppError(
+          'Graded submissions cannot be edited',
+          409,
+          'SUBMISSION_ALREADY_GRADED',
+        );
+      }
+
       const updatedSubmission = await repository.updateContent(
         id,
         input.content,

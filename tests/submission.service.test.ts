@@ -234,6 +234,29 @@ describe('Submission Service', () => {
   });
 
   describe('updateSubmission', () => {
+    it('rejects edits to graded submissions and preserves the grade', async () => {
+      mocks.findById.mockResolvedValue({
+        ...submission,
+        status: 'graded',
+        marks: 8,
+        feedback: 'Good work',
+      });
+      mocks.findStudentByUserId.mockResolvedValue({ id: 'student-1' });
+
+      await expect(
+        service.updateSubmission(
+          'submission-1',
+          { content: 'Changed after grading' },
+          studentUser,
+        ),
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        code: 'SUBMISSION_ALREADY_GRADED',
+      });
+
+      expect(mocks.updateContent).not.toHaveBeenCalled();
+    });
+
     it('allows students to update their own submission', async () => {
       mocks.findById.mockResolvedValue(submission);
       mocks.findStudentByUserId.mockResolvedValue({ id: 'student-1' });
