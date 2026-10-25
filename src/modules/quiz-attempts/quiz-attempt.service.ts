@@ -1,4 +1,4 @@
-﻿import type { QuizRepository } from '../quizzes/quiz.repository.interface.js';
+import type { QuizRepository } from '../quizzes/quiz.repository.interface.js';
 import type { EnrollmentRepository } from '../enrollments/enrollment.repository.interface.js';
 import type {
   QuizAttempt,
@@ -124,6 +124,15 @@ export class QuizAttemptService {
     await this.ensureWithinDuration(attempt);
 
     return this.attemptRepository.recordProctoringEvent(input);
+  }
+  async getResult(attemptId: string, studentId: string): Promise<QuizAttempt> {
+    const attempt = await this.requireOwnedAttempt(attemptId, studentId);
+
+    if (attempt.status === 'in_progress') {
+      throw new Error('ATTEMPT_NOT_SUBMITTED');
+    }
+
+    return this.hideScoreUnlessReleased(attempt);
   }
   private async hideScoreUnlessReleased(
     attempt: QuizAttempt,

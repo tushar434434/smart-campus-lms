@@ -1,4 +1,4 @@
-﻿import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { recordProctoringEventSchema } from '../quizzes/quiz.schema.js';
 
@@ -310,6 +310,32 @@ export async function quizAttemptRoutes(
     },
   );
 
+  // Retrieve a submitted attempt result.
+  app.get<{ Params: { attemptId: string } }>(
+    '/attempts/:attemptId/result',
+    async (request, reply) => {
+      try {
+        const user = await authenticate(request);
+        requireStudent(user);
+
+        const parsedId = uuidSchema.safeParse(request.params.attemptId);
+
+        if (!parsedId.success) {
+          return invalidId(reply, 'Invalid attempt ID');
+        }
+
+        const studentId = await resolveStudentId(user, studentRepository);
+        const result = await service.getResult(parsedId.data, studentId);
+
+        return reply.send({
+          success: true,
+          data: result,
+        });
+      } catch (error) {
+        return sendError(error, reply);
+      }
+    },
+  );
   // Record a proctoring event for an active quiz attempt.
   app.post<{ Params: { attemptId: string } }>(
     '/attempts/:attemptId/proctoring-events',
