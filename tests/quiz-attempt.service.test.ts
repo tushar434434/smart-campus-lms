@@ -73,26 +73,27 @@ describe('QuizAttemptService', () => {
   });
 
   describe('start', () => {
-    it('starts an attempt when the student is below the attempt limit', async () => {
-      vi.mocked(attempts.countByQuizAndStudent).mockResolvedValue(1);
-
+    it('starts an attempt when the quiz is available and the student is enrolled', async () => {
       await expect(service.start(quizId, studentId)).resolves.toEqual(attempt);
 
-      expect(attempts.countByQuizAndStudent).toHaveBeenCalledWith(
-        quizId,
+      expect(enrollments.findByStudentAndCourse).toHaveBeenCalledWith(
         studentId,
+        quiz.courseId,
       );
       expect(attempts.start).toHaveBeenCalledWith(quizId, studentId);
+      expect(attempts.countByQuizAndStudent).not.toHaveBeenCalled();
     });
 
-    it('rejects starting an attempt when the limit has been reached', async () => {
-      vi.mocked(attempts.countByQuizAndStudent).mockResolvedValue(2);
+    it('propagates the attempt limit error from the repository', async () => {
+      vi.mocked(attempts.start).mockRejectedValue(
+        new Error('MAX_ATTEMPTS_REACHED'),
+      );
 
       await expect(service.start(quizId, studentId)).rejects.toThrow(
         'MAX_ATTEMPTS_REACHED',
       );
 
-      expect(attempts.start).not.toHaveBeenCalled();
+      expect(attempts.start).toHaveBeenCalledWith(quizId, studentId);
     });
 
     it('rejects a student who is not enrolled', async () => {
@@ -108,6 +109,7 @@ describe('QuizAttemptService', () => {
       expect(attempts.start).not.toHaveBeenCalled();
     });
   });
+
   it('records a proctoring event for an active attempt', async () => {
     vi.mocked(attempts.findById).mockResolvedValue(attempt);
     vi.mocked(attempts.recordProctoringEvent).mockResolvedValue({

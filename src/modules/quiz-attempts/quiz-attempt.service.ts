@@ -44,15 +44,6 @@ export class QuizAttemptService {
       throw new Error('NOT_ENROLLED');
     }
 
-    const attemptCount = await this.attemptRepository.countByQuizAndStudent(
-      quizId,
-      studentId,
-    );
-
-    if (attemptCount >= quiz.maxAttempts) {
-      throw new Error('MAX_ATTEMPTS_REACHED');
-    }
-
     return this.attemptRepository.start(quizId, studentId);
   }
 
