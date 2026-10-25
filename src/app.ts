@@ -25,23 +25,17 @@ type HealthCheckPrisma = {
   $disconnect: () => Promise<unknown>;
 };
 
-type AppContainer = Omit<
-  Pick<
-    ReturnType<typeof createContainer>,
-    | 'prisma'
-    | 'courseService'
-    | 'studentService'
-    | 'studentRepository'
-    | 'enrollmentService'
-    | 'assignmentService'
-    | 'submissionService'
-    | 'authService'
-    | 'quizService'
-    | 'quizAttemptService'
-  >,
-  'prisma'
-> & {
+type AppContainer = {
   prisma: HealthCheckPrisma;
+  courseService: ReturnType<typeof createContainer>['courseService'];
+  studentService: ReturnType<typeof createContainer>['studentService'];
+  studentRepository: import('./modules/students/student.repository.interface.js').StudentRepository;
+  enrollmentService: ReturnType<typeof createContainer>['enrollmentService'];
+  assignmentService: ReturnType<typeof createContainer>['assignmentService'];
+  submissionService: ReturnType<typeof createContainer>['submissionService'];
+  authService: ReturnType<typeof createContainer>['authService'];
+  quizService: ReturnType<typeof createContainer>['quizService'];
+  quizAttemptService: ReturnType<typeof createContainer>['quizAttemptService'];
 };
 
 export function buildApp(container: AppContainer) {
@@ -83,34 +77,13 @@ export function buildApp(container: AppContainer) {
       ],
       tags: [
         { name: 'Health', description: 'System health endpoints' },
-        {
-          name: 'Authentication',
-          description: 'Authentication endpoints',
-        },
-        {
-          name: 'Courses',
-          description: 'Course management endpoints',
-        },
-        {
-          name: 'Students',
-          description: 'Student management endpoints',
-        },
-        {
-          name: 'Enrollments',
-          description: 'Course enrollment endpoints',
-        },
-        {
-          name: 'Assignments',
-          description: 'Assignment management endpoints',
-        },
-        {
-          name: 'Submissions',
-          description: 'Assignment management endpoints',
-        },
-        {
-          name: 'Quizzes',
-          description: 'Quiz management endpoints',
-        },
+        { name: 'Authentication', description: 'Authentication endpoints' },
+        { name: 'Courses', description: 'Course management endpoints' },
+        { name: 'Students', description: 'Student management endpoints' },
+        { name: 'Enrollments', description: 'Course enrollment endpoints' },
+        { name: 'Assignments', description: 'Assignment management endpoints' },
+        { name: 'Submissions', description: 'Assignment management endpoints' },
+        { name: 'Quizzes', description: 'Quiz management endpoints' },
         {
           name: 'Quiz Attempts',
           description:
@@ -129,17 +102,13 @@ export function buildApp(container: AppContainer) {
     },
   });
 
-  app.register(swaggerUi, {
-    routePrefix: '/docs',
-  });
+  app.register(swaggerUi, { routePrefix: '/docs' });
 
   app.register(jwt, {
     secret:
       process.env.JWT_SECRET ??
       'development-only-secret-change-before-deployment',
-    sign: {
-      expiresIn: '1h',
-    },
+    sign: { expiresIn: '1h' },
   });
 
   app.register(rateLimit, {
@@ -207,25 +176,11 @@ export function buildApp(container: AppContainer) {
     },
   );
 
-  app.register(courseRoutes, {
-    service: courseService,
-  });
-
-  app.register(studentRoutes, {
-    service: studentService,
-  });
-
-  app.register(enrollmentRoutes, {
-    service: enrollmentService,
-  });
-
-  app.register(assignmentRoutes, {
-    service: assignmentService,
-  });
-
-  app.register(submissionRoutes, {
-    service: submissionService,
-  });
+  app.register(courseRoutes, { service: courseService });
+  app.register(studentRoutes, { service: studentService });
+  app.register(enrollmentRoutes, { service: enrollmentService });
+  app.register(assignmentRoutes, { service: assignmentService });
+  app.register(submissionRoutes, { service: submissionService });
 
   app.register(async (quizApp) => {
     await quizRoutes(quizApp, quizService);
