@@ -1,4 +1,4 @@
-import {
+﻿import {
   afterAll,
   beforeAll,
   beforeEach,
@@ -44,6 +44,7 @@ describe('Quiz attempt routes', () => {
     start: vi.fn(),
     getQuestions: vi.fn(),
     saveAnswer: vi.fn(),
+    recordProctoringEvent: vi.fn(),
     submit: vi.fn(),
   };
 
@@ -357,5 +358,72 @@ describe('Quiz attempt routes', () => {
     expect(response.statusCode).toBe(500);
     expect(response.json().error.code).toBe('INTERNAL_ERROR');
     expect(response.body).not.toContain('DATABASE_CONNECTION_SECRET');
+  });
+
+  it('rejects an invalid attempt ID for proctoring events', async () => {
+    const response = await request(
+      'POST',
+      '/attempts/not-a-uuid/proctoring-events',
+      { payload: { type: 'tab_switch' } },
+    );
+
+    expect(response.statusCode).toBe(400);
+    expect(service.recordProctoringEvent).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid proctoring event type', async () => {
+    const response = await request(
+      'POST',
+      `/attempts/${ATTEMPT_ID}/proctoring-events`,
+      { payload: { type: 'unknown_event' } },
+    );
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
+    expect(service.recordProctoringEvent).not.toHaveBeenCalled();
+  });
+
+  it('records a valid proctoring event', async () => {
+    const attempt = makeAttempt({
+      tabSwitchCount: 1,
+      suspiciousActivity: true,
+    });
+    service.recordProctoringEvent.mockResolvedValue(attempt);
+
+    const response = await request(
+      'POST',
+      `/attempts/${ATTEMPT_ID}/proctoring-events`,
+      {
+        payload: {
+          type: 'tab_switch',
+          metadata: 'Browser tab changed',
+        },
+      },
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().success).toBe(true);
+    expect(service.recordProctoringEvent).toHaveBeenCalledWith(
+      {
+        attemptId: ATTEMPT_ID,
+        type: 'tab_switch',
+        metadata: 'Browser tab changed',
+      },
+      STUDENT_ID,
+    );
+  });
+
+  it('rejects unauthenticated proctoring requests', async () => {
+    const response = await request(
+      'POST',
+      `/attempts/${ATTEMPT_ID}/proctoring-events`,
+      {
+        authenticated: false,
+        payload: { type: 'tab_switch' },
+      },
+    );
+
+    expect(response.statusCode).toBe(401);
+    expect(service.recordProctoringEvent).not.toHaveBeenCalled();
   });
 });

@@ -1,9 +1,10 @@
-import type { QuizRepository } from '../quizzes/quiz.repository.interface.js';
+﻿import type { QuizRepository } from '../quizzes/quiz.repository.interface.js';
 import type { EnrollmentRepository } from '../enrollments/enrollment.repository.interface.js';
 import type {
   QuizAttempt,
   QuizAttemptRepository,
   QuizAnswerInput,
+  ProctoringEventInput,
 } from './quiz-attempt.repository.interface.js';
 
 export class QuizAttemptService {
@@ -110,6 +111,20 @@ export class QuizAttemptService {
     return this.hideScoreUnlessReleased(submitted);
   }
 
+  async recordProctoringEvent(
+    input: ProctoringEventInput,
+    studentId: string,
+  ): Promise<QuizAttempt> {
+    const attempt = await this.requireOwnedAttempt(input.attemptId, studentId);
+
+    if (attempt.status !== 'in_progress') {
+      throw new Error('ATTEMPT_ALREADY_SUBMITTED');
+    }
+
+    await this.ensureWithinDuration(attempt);
+
+    return this.attemptRepository.recordProctoringEvent(input);
+  }
   private async hideScoreUnlessReleased(
     attempt: QuizAttempt,
   ): Promise<QuizAttempt> {

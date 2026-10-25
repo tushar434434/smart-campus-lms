@@ -1,5 +1,6 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+﻿import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import { recordProctoringEventSchema } from '../quizzes/quiz.schema.js';
 
 import type { QuizAttemptService } from './quiz-attempt.service.js';
 import type { StudentRepository } from '../students/student.repository.interface.js';
@@ -298,6 +299,57 @@ export async function quizAttemptRoutes(
 
         const studentId = await resolveStudentId(user, studentRepository);
         const attempt = await service.submit(parsedId.data, studentId);
+
+        return reply.send({
+          success: true,
+          data: attempt,
+        });
+      } catch (error) {
+        return sendError(error, reply);
+      }
+    },
+  );
+
+  // Record a proctoring event for an active quiz attempt.
+  app.post<{ Params: { attemptId: string } }>(
+    '/attempts/:attemptId/proctoring-events',
+    async (request, reply) => {
+      try {
+        const user = await authenticate(request);
+        requireStudent(user);
+
+        const parsedId = uuidSchema.safeParse(request.params.attemptId);
+        const body = recordProctoringEventSchema.safeParse(request.body);
+
+        if (!parsedId.success) {
+          return invalidId(reply, 'Invalid attempt ID');
+        }
+
+        if (!body.success) {
+          return reply.code(400).send({
+            success: false,
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: 'Invalid proctoring event',
+            },
+          });
+        }
+
+        const studentId = await resolveStudentId(user, studentRepository);
+
+        const attempt = await service.recordProctoringEvent(
+          {
+            attemptId: parsedId.data,
+            type: body.data.type,
+            ...(body.data.occurredAt
+              ? { occurredAt: new Date(body.data.occurredAt) }
+              : {}),
+            ...(body.data.metadata !== undefined
+              ? { metadata: body.data.metadata }
+              : {}),
+          },
+          studentId,
+        );
 
         return reply.send({
           success: true,

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+﻿import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PrismaQuizAttemptRepository } from '../src/modules/quiz-attempts/quiz-attempt.prisma.repository.js';
 
 describe('PrismaQuizAttemptRepository', () => {
@@ -58,6 +58,7 @@ describe('PrismaQuizAttemptRepository', () => {
       upsert: ReturnType<typeof vi.fn>;
       update: ReturnType<typeof vi.fn>;
     };
+    proctoringEvent: { create: ReturnType<typeof vi.fn> };
   };
 
   let prisma: typeof tx & {
@@ -83,6 +84,7 @@ describe('PrismaQuizAttemptRepository', () => {
         upsert: vi.fn(),
         update: vi.fn(),
       },
+      proctoringEvent: { create: vi.fn() },
     };
 
     prisma = {
@@ -436,5 +438,112 @@ describe('PrismaQuizAttemptRepository', () => {
     expect(result?.score).toBe(5);
     expect(tx.quizAnswer.update).not.toHaveBeenCalled();
     expect(tx.quizAttempt.update).not.toHaveBeenCalled();
+  });
+
+  describe('recordProctoringEvent', () => {
+    beforeEach(() => {
+      tx.quizAttempt.findUnique.mockResolvedValue(attempt);
+      tx.proctoringEvent.create.mockResolvedValue({ id: 'event-1' });
+      tx.quizAttempt.update.mockImplementation(async ({ data }) => ({
+        ...attempt,
+        ...(data.tabSwitchCount
+          ? {
+              tabSwitchCount:
+                attempt.tabSwitchCount + data.tabSwitchCount.increment,
+            }
+          : {}),
+        ...(data.fullscreenExitCount
+          ? {
+              fullscreenExitCount:
+                attempt.fullscreenExitCount +
+                data.fullscreenExitCount.increment,
+            }
+          : {}),
+        ...(data.suspiciousActivity !== undefined
+          ? { suspiciousActivity: data.suspiciousActivity }
+          : {}),
+      }));
+    });
+
+    it('persists a tab switch proctoring event', async () => {
+      await repository.recordProctoringEvent({
+        attemptId: 'attempt-1',
+        type: 'tab_switch',
+        metadata: 'Tab changed',
+      });
+
+      expect(tx.proctoringEvent.create).toHaveBeenCalledWith({
+        data: {
+          attemptId: 'attempt-1',
+          type: 'tab_switch',
+          metadata: 'Tab changed',
+        },
+      });
+
+      expect(tx.quizAttempt.update).toHaveBeenCalledWith({
+        where: { id: 'attempt-1' },
+        data: {
+          tabSwitchCount: { increment: 1 },
+          suspiciousActivity: true,
+        },
+      });
+    });
+
+    it('increments fullscreen exit count', async () => {
+      await repository.recordProctoringEvent({
+        attemptId: 'attempt-1',
+        type: 'fullscreen_exit',
+      });
+
+      expect(tx.quizAttempt.update).toHaveBeenCalledWith({
+        where: { id: 'attempt-1' },
+        data: {
+          fullscreenExitCount: { increment: 1 },
+          suspiciousActivity: true,
+        },
+      });
+    });
+
+    it('persists visibility events without marking suspicious activity', async () => {
+      await repository.recordProctoringEvent({
+        attemptId: 'attempt-1',
+        type: 'visibility_hidden',
+      });
+
+      expect(tx.proctoringEvent.create).toHaveBeenCalled();
+      expect(tx.quizAttempt.update).toHaveBeenCalledWith({
+        where: { id: 'attempt-1' },
+        data: {},
+      });
+    });
+
+    it('rejects a missing attempt', async () => {
+      tx.quizAttempt.findUnique.mockResolvedValue(null);
+
+      await expect(
+        repository.recordProctoringEvent({
+          attemptId: 'missing-attempt',
+          type: 'tab_switch',
+        }),
+      ).rejects.toThrow('ATTEMPT_NOT_FOUND');
+
+      expect(tx.proctoringEvent.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects an already-submitted attempt', async () => {
+      tx.quizAttempt.findUnique.mockResolvedValue({
+        ...attempt,
+        status: 'submitted',
+      });
+
+      await expect(
+        repository.recordProctoringEvent({
+          attemptId: 'attempt-1',
+          type: 'tab_switch',
+        }),
+      ).rejects.toThrow('ATTEMPT_ALREADY_SUBMITTED');
+
+      expect(tx.proctoringEvent.create).not.toHaveBeenCalled();
+    });
   });
 });

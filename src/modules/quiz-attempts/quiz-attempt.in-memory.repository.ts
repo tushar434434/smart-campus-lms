@@ -1,10 +1,11 @@
-import { randomUUID } from 'node:crypto';
+﻿import { randomUUID } from 'node:crypto';
 
 import type {
   QuizAttempt,
   QuizAttemptRepository,
   QuizAnswerInput,
   QuizAttemptAnswerResult,
+  ProctoringEventInput,
   QuizQuestionForAttempt,
 } from './quiz-attempt.repository.interface.js';
 import type { QuizRepository } from '../quizzes/quiz.repository.interface.js';
@@ -139,6 +140,32 @@ export class InMemoryQuizAttemptRepository implements QuizAttemptRepository {
     });
   }
 
+  async recordProctoringEvent(
+    input: ProctoringEventInput,
+  ): Promise<QuizAttempt> {
+    const attempt = this.attempts.get(input.attemptId);
+
+    if (!attempt) {
+      throw new Error('ATTEMPT_NOT_FOUND');
+    }
+
+    if (attempt.status !== 'in_progress') {
+      throw new Error('ATTEMPT_ALREADY_SUBMITTED');
+    }
+
+    if (input.type === 'tab_switch') {
+      attempt.tabSwitchCount += 1;
+      attempt.suspiciousActivity = true;
+    }
+
+    if (input.type === 'fullscreen_exit') {
+      attempt.fullscreenExitCount += 1;
+      attempt.suspiciousActivity = true;
+    }
+
+    this.attempts.set(attempt.id, attempt);
+    return { ...attempt };
+  }
   async submit(
     id: string,
     status: 'submitted' | 'auto_submitted' = 'submitted',

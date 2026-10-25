@@ -1,10 +1,11 @@
-import { Prisma, PrismaClient } from '../../generated/prisma/client.js';
+﻿import { Prisma, PrismaClient } from '../../generated/prisma/client.js';
 
 import type {
   QuizAttempt,
   QuizAttemptRepository,
   QuizAnswerInput,
   QuizAttemptAnswerResult,
+  ProctoringEventInput,
   QuizQuestionForAttempt,
   QuizOption,
 } from './quiz-attempt.repository.interface.js';
@@ -284,6 +285,57 @@ export class PrismaQuizAttemptRepository implements QuizAttemptRepository {
     });
   }
 
+  async recordProctoringEvent(
+    input: ProctoringEventInput,
+  ): Promise<QuizAttempt> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`
+        SELECT id
+        FROM "QuizAttempt"
+        WHERE id = ${input.attemptId}::uuid
+        FOR UPDATE
+      `;
+
+      const attempt = await tx.quizAttempt.findUnique({
+        where: { id: input.attemptId },
+      });
+
+      if (!attempt) {
+        throw new Error('ATTEMPT_NOT_FOUND');
+      }
+
+      if (attempt.status !== 'in_progress') {
+        throw new Error('ATTEMPT_ALREADY_SUBMITTED');
+      }
+
+      await tx.proctoringEvent.create({
+        data: {
+          attemptId: input.attemptId,
+          type: input.type,
+          ...(input.occurredAt && { occurredAt: input.occurredAt }),
+          ...(input.metadata !== undefined && { metadata: input.metadata }),
+        },
+      });
+
+      const suspiciousEvent =
+        input.type === 'tab_switch' || input.type === 'fullscreen_exit';
+
+      const updated = await tx.quizAttempt.update({
+        where: { id: input.attemptId },
+        data: {
+          ...(input.type === 'tab_switch' && {
+            tabSwitchCount: { increment: 1 },
+          }),
+          ...(input.type === 'fullscreen_exit' && {
+            fullscreenExitCount: { increment: 1 },
+          }),
+          ...(suspiciousEvent && { suspiciousActivity: true }),
+        },
+      });
+
+      return this.toQuizAttempt(updated);
+    });
+  }
   private toQuizAttempt(attempt: {
     id: string;
     quizId: string;

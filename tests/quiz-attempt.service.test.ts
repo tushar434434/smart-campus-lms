@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+﻿import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { QuizAttemptService } from '../src/modules/quiz-attempts/quiz-attempt.service.js';
 
 import type {
@@ -56,6 +56,7 @@ describe('QuizAttemptService', () => {
       countByQuizAndStudent: vi.fn().mockResolvedValue(0),
       findQuestions: vi.fn(),
       saveAnswer: vi.fn(),
+      recordProctoringEvent: vi.fn(),
       findAnswersByAttemptId: vi.fn().mockResolvedValue([]),
       submit: vi.fn(),
     };
@@ -107,8 +108,68 @@ describe('QuizAttemptService', () => {
       expect(attempts.start).not.toHaveBeenCalled();
     });
   });
+  it('records a proctoring event for an active attempt', async () => {
+    vi.mocked(attempts.findById).mockResolvedValue(attempt);
+    vi.mocked(attempts.recordProctoringEvent).mockResolvedValue({
+      ...attempt,
+      tabSwitchCount: 1,
+      suspiciousActivity: true,
+    });
 
-  it('prevents a student from accessing another student’s attempt', async () => {
+    await expect(
+      service.recordProctoringEvent(
+        {
+          attemptId,
+          type: 'tab_switch',
+          metadata: 'Browser tab changed',
+        },
+        studentId,
+      ),
+    ).resolves.toMatchObject({
+      tabSwitchCount: 1,
+      suspiciousActivity: true,
+    });
+
+    expect(attempts.recordProctoringEvent).toHaveBeenCalledWith({
+      attemptId,
+      type: 'tab_switch',
+      metadata: 'Browser tab changed',
+    });
+  });
+
+  it('rejects proctoring events after submission', async () => {
+    vi.mocked(attempts.findById).mockResolvedValue({
+      ...attempt,
+      status: 'submitted',
+    });
+
+    await expect(
+      service.recordProctoringEvent(
+        { attemptId, type: 'tab_switch' },
+        studentId,
+      ),
+    ).rejects.toThrow('ATTEMPT_ALREADY_SUBMITTED');
+
+    expect(attempts.recordProctoringEvent).not.toHaveBeenCalled();
+  });
+
+  it('rejects proctoring events for another student’s attempt', async () => {
+    vi.mocked(attempts.findById).mockResolvedValue({
+      ...attempt,
+      studentId: 'another-student',
+    });
+
+    await expect(
+      service.recordProctoringEvent(
+        { attemptId, type: 'tab_switch' },
+        studentId,
+      ),
+    ).rejects.toThrow('FORBIDDEN');
+
+    expect(attempts.recordProctoringEvent).not.toHaveBeenCalled();
+  });
+
+  it('prevents a student from accessing another studentâ€™s attempt', async () => {
     vi.mocked(attempts.findById).mockResolvedValue({
       ...attempt,
       studentId: 'another-student',

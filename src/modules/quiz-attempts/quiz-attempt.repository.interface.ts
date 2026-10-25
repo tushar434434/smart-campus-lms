@@ -1,3 +1,19 @@
+﻿export type ProctoringEventType =
+  | 'tab_switch'
+  | 'fullscreen_exit'
+  | 'fullscreen_enter'
+  | 'visibility_hidden'
+  | 'visibility_visible'
+  | 'quiz_started'
+  | 'quiz_submitted'
+  | 'time_expired';
+
+export interface ProctoringEventInput {
+  attemptId: string;
+  type: ProctoringEventType;
+  occurredAt?: Date;
+  metadata?: string;
+}
 export type QuizAttemptStatus =
   'in_progress' | 'submitted' | 'auto_submitted' | 'flagged';
 
@@ -58,4 +74,6 @@ export interface QuizAttemptRepository {
     id: string,
     status?: 'submitted' | 'auto_submitted',
   ): Promise<QuizAttempt | undefined>;
+
+  recordProctoringEvent(input: ProctoringEventInput): Promise<QuizAttempt>;
 }
