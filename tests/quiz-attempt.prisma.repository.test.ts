@@ -228,6 +228,33 @@ describe('PrismaQuizAttemptRepository', () => {
     expect(result[0]).not.toHaveProperty('correctOption');
   });
 
+  it('locks the attempt before checking its status when saving an answer', async () => {
+    const callOrder: string[] = [];
+
+    tx.$queryRaw.mockImplementation(async () => {
+      callOrder.push('lock');
+      return [{ id: 'attempt-1' }];
+    });
+
+    tx.quizAttempt.findUnique.mockImplementation(async () => {
+      callOrder.push('findAttempt');
+      return attempt;
+    });
+
+    tx.quizQuestion.findFirst.mockResolvedValue({ id: 'question-1' });
+    tx.quizAnswer.upsert.mockResolvedValue({});
+
+    await repository.saveAnswer({
+      attemptId: 'attempt-1',
+      questionId: 'question-1',
+      selectedOption: 'B',
+    });
+
+    expect(callOrder).toEqual(['lock', 'findAttempt']);
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(tx.quizAnswer.upsert).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects answers for questions belonging to another quiz', async () => {
     tx.quizAttempt.findUnique.mockResolvedValue(attempt);
     tx.quizQuestion.findFirst.mockResolvedValue(null);
@@ -259,6 +286,36 @@ describe('PrismaQuizAttemptRepository', () => {
 
     expect(tx.quizQuestion.findFirst).not.toHaveBeenCalled();
     expect(tx.quizAnswer.upsert).not.toHaveBeenCalled();
+  });
+
+  it('locks the attempt before loading answers for submission', async () => {
+    const callOrder: string[] = [];
+
+    tx.$queryRaw.mockImplementation(async () => {
+      callOrder.push('lock');
+      return [{ id: 'attempt-1' }];
+    });
+
+    tx.quizAttempt.findUnique.mockImplementation(async () => {
+      callOrder.push('findAttempt');
+      return {
+        ...attempt,
+        answers: [],
+      };
+    });
+
+    tx.quizAttempt.update.mockResolvedValue({
+      ...attempt,
+      status: 'submitted',
+      score: 0,
+      submittedAt: new Date('2026-10-23T09:20:00Z'),
+    });
+
+    await repository.submit('attempt-1');
+
+    expect(callOrder).toEqual(['lock', 'findAttempt']);
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(tx.quizAttempt.update).toHaveBeenCalledTimes(1);
   });
 
   it('calculates the score and marks correct and incorrect answers', async () => {
