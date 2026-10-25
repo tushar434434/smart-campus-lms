@@ -46,12 +46,11 @@ export class PrismaQuizAttemptRepository implements QuizAttemptRepository {
           throw new Error('STUDENT_NOT_ENROLLED');
         }
 
-        // Serialize attempt creation for this quiz by taking a row lock
-        // on the quiz record before counting existing attempts.
+        // Serialize attempt creation for this quiz before counting attempts.
         await tx.$queryRaw`
           SELECT id
           FROM "Quiz"
-          WHERE id = ${quizId}
+          WHERE id = ${quizId}::uuid
           FOR UPDATE
         `;
 
@@ -120,6 +119,14 @@ export class PrismaQuizAttemptRepository implements QuizAttemptRepository {
 
   async saveAnswer(input: QuizAnswerInput): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
+      // Lock the attempt before checking its status.
+      await tx.$queryRaw`
+        SELECT id
+        FROM "QuizAttempt"
+        WHERE id = ${input.attemptId}::uuid
+        FOR UPDATE
+      `;
+
       const attempt = await tx.quizAttempt.findUnique({
         where: { id: input.attemptId },
       });
@@ -172,6 +179,14 @@ export class PrismaQuizAttemptRepository implements QuizAttemptRepository {
     status: 'submitted' | 'auto_submitted' = 'submitted',
   ): Promise<QuizAttempt | undefined> {
     return this.prisma.$transaction(async (tx) => {
+      // Lock the attempt before loading its answers for grading.
+      await tx.$queryRaw`
+        SELECT id
+        FROM "QuizAttempt"
+        WHERE id = ${id}::uuid
+        FOR UPDATE
+      `;
+
       const attempt = await tx.quizAttempt.findUnique({
         where: { id },
         include: {
