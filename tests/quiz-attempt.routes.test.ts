@@ -307,6 +307,48 @@ describe('Quiz attempt routes', () => {
     );
   });
 
+  it('rejects saving an answer when the attempt belongs to another student', async () => {
+    studentRepository.findByUserId.mockResolvedValue({
+      id: OTHER_STUDENT_ID,
+    });
+    service.saveAnswer.mockRejectedValue(new Error('FORBIDDEN'));
+
+    const response = await request(
+      'PUT',
+      `/attempts/${ATTEMPT_ID}/answers/${QUESTION_ID}`,
+      {
+        sub: OTHER_USER_ID,
+        payload: { selectedOption: 'A' },
+      },
+    );
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json().error.code).toBe('FORBIDDEN');
+    expect(service.saveAnswer).toHaveBeenCalledWith(
+      {
+        attemptId: ATTEMPT_ID,
+        questionId: QUESTION_ID,
+        selectedOption: 'A',
+      },
+      OTHER_STUDENT_ID,
+    );
+  });
+
+  it('rejects submitting an attempt when it belongs to another student', async () => {
+    studentRepository.findByUserId.mockResolvedValue({
+      id: OTHER_STUDENT_ID,
+    });
+    service.submit.mockRejectedValue(new Error('FORBIDDEN'));
+
+    const response = await request('POST', `/attempts/${ATTEMPT_ID}/submit`, {
+      sub: OTHER_USER_ID,
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json().error.code).toBe('FORBIDDEN');
+    expect(service.submit).toHaveBeenCalledWith(ATTEMPT_ID, OTHER_STUDENT_ID);
+  });
+
   it('does not expose internal error details', async () => {
     service.submit.mockRejectedValue(new Error('DATABASE_CONNECTION_SECRET'));
 
