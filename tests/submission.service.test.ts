@@ -62,7 +62,10 @@ describe('Submission Service', () => {
     it('allows students to submit their own work using the linked student record', async () => {
       mocks.findStudentByUserId.mockResolvedValue({ id: 'student-1' });
       mocks.findStudentById.mockResolvedValue({ id: 'student-1' });
-      mocks.findAssignmentById.mockResolvedValue({ id: 'assignment-1' });
+      mocks.findAssignmentById.mockResolvedValue({
+        id: 'assignment-1',
+        dueAt: new Date(Date.now() + 60_000).toISOString(),
+      });
       mocks.findByStudentAndAssignment.mockResolvedValue(undefined);
       mocks.create.mockResolvedValue(submission);
 
@@ -126,10 +129,29 @@ describe('Submission Service', () => {
       });
     });
 
+    it('rejects submissions after the assignment deadline', async () => {
+      mocks.findStudentById.mockResolvedValue({ id: 'student-1' });
+      mocks.findAssignmentById.mockResolvedValue({
+        id: 'assignment-1',
+        dueAt: new Date(Date.now() - 60_000).toISOString(),
+      });
+
+      await expect(
+        service.createSubmission(input, facultyUser),
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        code: 'ASSIGNMENT_DEADLINE_PASSED',
+      });
+
+      expect(mocks.create).not.toHaveBeenCalled();
+    });
     it('rejects duplicate submissions', async () => {
       mocks.findStudentByUserId.mockResolvedValue({ id: 'student-1' });
       mocks.findStudentById.mockResolvedValue({ id: 'student-1' });
-      mocks.findAssignmentById.mockResolvedValue({ id: 'assignment-1' });
+      mocks.findAssignmentById.mockResolvedValue({
+        id: 'assignment-1',
+        dueAt: new Date(Date.now() + 60_000).toISOString(),
+      });
       mocks.findByStudentAndAssignment.mockResolvedValue(submission);
 
       await expect(

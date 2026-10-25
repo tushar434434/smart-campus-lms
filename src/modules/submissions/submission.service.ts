@@ -67,6 +67,14 @@ export function createSubmissionService(
         throw new AppError('Assignment not found', 404, 'ASSIGNMENT_NOT_FOUND');
       }
 
+      if (new Date() > new Date(assignment.dueAt)) {
+        throw new AppError(
+          'The assignment deadline has passed',
+          409,
+          'ASSIGNMENT_DEADLINE_PASSED',
+        );
+      }
+
       const existing = await repository.findByStudentAndAssignment(
         input.studentId,
         input.assignmentId,
