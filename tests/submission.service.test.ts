@@ -355,6 +355,24 @@ describe('Submission Service', () => {
       expect(mocks.grade).toHaveBeenCalledWith('submission-1', 80, 'Good work');
     });
 
+    it('rejects grading a submission that is already graded', async () => {
+      mocks.findById.mockResolvedValue({
+        ...submission,
+        status: 'graded',
+        marks: 80,
+        feedback: 'Good work',
+      });
+
+      await expect(
+        service.gradeSubmission('submission-1', gradeInput, facultyUser),
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        code: 'SUBMISSION_ALREADY_GRADED',
+      });
+
+      expect(mocks.findAssignmentById).not.toHaveBeenCalled();
+      expect(mocks.grade).not.toHaveBeenCalled();
+    });
     it('rejects students attempting to grade submissions', async () => {
       await expect(
         service.gradeSubmission('submission-1', gradeInput, studentUser),

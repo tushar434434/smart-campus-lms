@@ -218,6 +218,14 @@ export function createSubmissionService(
         throw new AppError('Submission not found', 404, 'SUBMISSION_NOT_FOUND');
       }
 
+      if (submission.status === 'graded') {
+        throw new AppError(
+          'Submission has already been graded',
+          409,
+          'SUBMISSION_ALREADY_GRADED',
+        );
+      }
+
       const assignment = await assignmentRepository.findById(
         submission.assignmentId,
       );

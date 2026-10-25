@@ -183,7 +183,7 @@ describe('Submission Routes', () => {
         courseId,
         title: 'Array Assignment',
         description: 'Solve array problems',
-        dueAt: '2026-10-20T18:00:00.000Z',
+        dueAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         maxMarks: 100,
       },
     });
@@ -522,3 +522,4 @@ describe('Submission Routes', () => {
     expect(response.json().error.code).toBe('SUBMISSION_NOT_FOUND');
   });
 });
+
