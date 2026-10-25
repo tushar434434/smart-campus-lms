@@ -39,6 +39,13 @@ type AppContainer = {
 };
 
 export function buildApp(container: AppContainer) {
+  const isTest = process.env.NODE_ENV === 'test';
+  const jwtSecret = process.env.JWT_SECRET;
+
+  if (!jwtSecret && !isTest) {
+    throw new Error('JWT_SECRET must be configured outside test environments');
+  }
+
   const app = Fastify({
     logger: {
       level: process.env.LOG_LEVEL || 'info',
@@ -105,9 +112,7 @@ export function buildApp(container: AppContainer) {
   app.register(swaggerUi, { routePrefix: '/docs' });
 
   app.register(jwt, {
-    secret:
-      process.env.JWT_SECRET ??
-      'development-only-secret-change-before-deployment',
+    secret: jwtSecret ?? 'test-only-secret-not-for-production',
     sign: { expiresIn: '1h' },
   });
 

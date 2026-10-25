@@ -38,7 +38,9 @@ export function createTestContainer() {
   const submissionRepository = new InMemorySubmissionRepository();
   const authRepository = new InMemoryAuthRepository();
   const quizRepository = new InMemoryQuizRepository();
-  const quizAttemptRepository = new InMemoryQuizAttemptRepository(quizRepository);
+  const quizAttemptRepository = new InMemoryQuizAttemptRepository(
+    quizRepository,
+  );
 
   // Services
   const courseService = createCourseService(courseRepository);
@@ -103,4 +105,3 @@ export function createTestContainer() {
     quizAttemptService,
   };
 }
-

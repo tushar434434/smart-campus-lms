@@ -14,6 +14,9 @@ import type { QuizAttemptService } from '../src/modules/quiz-attempts/quiz-attem
 
 const USER_ID = 'user-123';
 const STUDENT_ID = 'student-123';
+const OTHER_USER_ID = 'another-user-456';
+const OTHER_STUDENT_ID = 'another-student-456';
+
 const QUIZ_ID = '11111111-1111-4111-8111-111111111111';
 const ATTEMPT_ID = '22222222-2222-4222-8222-222222222222';
 const QUESTION_ID = '33333333-3333-4333-8333-333333333333';
@@ -283,6 +286,25 @@ describe('Quiz attempt routes', () => {
 
     expect(response.statusCode).toBe(403);
     expect(response.json().error.code).toBe('FORBIDDEN');
+  });
+
+  it('rejects access when the authenticated student does not own the attempt', async () => {
+    studentRepository.findByUserId.mockResolvedValue({
+      id: OTHER_STUDENT_ID,
+    });
+    service.getQuestions.mockRejectedValue(new Error('FORBIDDEN'));
+
+    const response = await request('GET', `/attempts/${ATTEMPT_ID}/questions`, {
+      sub: OTHER_USER_ID,
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json().error.code).toBe('FORBIDDEN');
+    expect(studentRepository.findByUserId).toHaveBeenCalledWith(OTHER_USER_ID);
+    expect(service.getQuestions).toHaveBeenCalledWith(
+      ATTEMPT_ID,
+      OTHER_STUDENT_ID,
+    );
   });
 
   it('does not expose internal error details', async () => {

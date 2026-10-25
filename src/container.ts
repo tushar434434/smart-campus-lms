@@ -51,7 +51,7 @@ export function createContainer() {
   const authRepository = new PrismaAuthRepository(prisma);
   const quizRepository = new PrismaQuizRepository(prisma);
 
- const quizAttemptRepository = new PrismaQuizAttemptRepository(prisma);
+  const quizAttemptRepository = new PrismaQuizAttemptRepository(prisma);
 
   // Services
   const courseService = createCourseService(courseRepository);
