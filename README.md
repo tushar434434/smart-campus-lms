@@ -1,58 +1,55 @@
 # Smart Campus LMS Backend
 
-A modular, backend-focused Learning Management System built with **TypeScript, Fastify, and Prisma**. The system provides secure authentication, role-based access control, course and assignment management, and a submission and grading workflow.
+A modular, backend-focused Learning Management System built with **TypeScript, Fastify, Prisma, and PostgreSQL**. The project provides authentication, role-based authorization, academic resource management, and assignment submission and grading workflows.
 
-The project emphasizes maintainable code, clear service boundaries, input validation, authorization, and automated testing.
+The backend emphasizes maintainable architecture, input validation, secure access control, clear service boundaries, and automated testing.
 
 ## Features
 
 ### Authentication and Authorization
-
 - User registration and login
 - JWT-based authentication
-- Secure password hashing with bcrypt
-- Role-based access control for Students, Faculty, and Admins
+- Password hashing with bcrypt
+- Role-based access control for students, faculty, and administrators
 - Protected API endpoints
 
 ### Academic Management
-
 - Student record management
 - Course management
 - Assignment creation and management
-- Assignment deadlines and maximum-mark validation
+- Assignment deadline and maximum-mark validation
 
 ### Submission Workflow
-
 - Create and retrieve assignment submissions
 - Update submissions with ownership and permission checks
-- Reject submissions after the assignment deadline
-- Prevent modifications to graded submissions
+- Enforce assignment deadlines
+- Protect graded submissions from unauthorized modification
 - Validate grades against assignment limits
-- Structured error responses for invalid operations
+- Return structured errors for invalid operations
 
 ### Quality and Maintainability
-
-- TypeScript for static type checking
-- Zod-based request validation
+- TypeScript static type checking
+- Zod request validation
 - Modular application structure
 - Automated tests with Vitest
-- ESLint and Prettier for code quality and consistency
+- ESLint and Prettier checks
+- PostgreSQL integration testing
 
 ## Technology Stack
 
-| Technology | Purpose                               |
-| ---------- | ------------------------------------- |
-| TypeScript | Type-safe application development     |
-| Node.js    | JavaScript runtime                    |
-| Fastify    | HTTP server and API framework         |
-| PostgreSQL | Relational database                   |
-| Prisma     | Database access and schema management |
-| JWT        | Authentication                        |
-| bcrypt     | Password hashing                      |
-| Zod        | Input validation                      |
-| Vitest     | Automated testing                     |
-| ESLint     | Static analysis                       |
-| Prettier   | Code formatting                       |
+| Technology | Purpose |
+|---|---|
+| TypeScript | Type-safe application development |
+| Node.js | JavaScript runtime |
+| Fastify | HTTP server and API framework |
+| PostgreSQL | Relational database |
+| Prisma | Database access and schema management |
+| JWT | Authentication |
+| bcrypt | Password hashing |
+| Zod | Request validation |
+| Vitest | Automated testing |
+| ESLint | Static analysis |
+| Prettier | Code formatting |
 
 ## Project Structure
 
@@ -72,15 +69,16 @@ backend/
 ├── .gitignore
 ├── package.json
 ├── tsconfig.json
-└── README.md
+├── README.md
+└── Screenshot 2026-10-26 112047.png
 ```
 
-_The module list above illustrates the main structure; exact filenames may vary._
+*This is an illustrative structure; the actual repository files are authoritative.*
 
 ## Prerequisites
 
 - Node.js and npm
-- PostgreSQL, configured for your environment
+- PostgreSQL
 - Git
 
 ## Getting Started
@@ -100,17 +98,19 @@ npm install
 
 ### 3. Configure environment variables
 
-Create a local `.env` file based on `.env.example` and supply the values required by the application.
+Create a local `.env` file using `.env.example` as a reference.
+
+In PowerShell:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Configure the database connection and authentication settings according to the project's environment configuration. Never commit real credentials or secrets.
+Configure the required database connection and authentication variables. Never commit credentials or secrets.
 
 ### 4. Configure the database
 
-Ensure PostgreSQL is running and the database connection is configured. Apply the Prisma setup or migrations required by the repository before starting the application.
+Ensure PostgreSQL is running, configure the database connection, and apply the Prisma migrations or setup commands defined by the project.
 
 ### 5. Start the development server
 
@@ -120,27 +120,52 @@ npm run dev
 
 ## Available Commands
 
-| Command                | Description                  |
-| ---------------------- | ---------------------------- |
-| `npm run dev`          | Start the development server |
-| `npm run build`        | Compile TypeScript           |
-| `npm start`            | Run the compiled application |
-| `npm test`             | Run the automated test suite |
-| `npm run lint`         | Run ESLint                   |
-| `npm run format:check` | Check code formatting        |
+Run commands from the `backend` directory.
 
-## Testing and Validation
+| Command | Description |
+|---|---|
+| `npm run dev` | Start the development server |
+| `npm run build` | Compile TypeScript |
+| `npm start` | Run the compiled application |
+| `npm test` | Run automated tests |
+| `npm run lint` | Run ESLint |
+| `npx prettier --check .` | Check formatting |
 
-Run the following checks before submitting changes:
+*Available scripts are defined in `package.json`.*
+
+## Testing and Quality Checks
+
+The automated test suite covers application behavior, regression cases, and PostgreSQL-backed integration scenarios.
+
+Run the checks locally:
 
 ```bash
 npm test
-npm run lint
 npm run build
-git diff --check
+npm run lint
+npx prettier --check .
 ```
 
-The test suite covers application behavior and regression cases, including submission permissions, deadline enforcement, and grading-related rules.
+### Latest Verified Test Results
+
+| Metric | Result |
+|---|---:|
+| Test files passed | 23 / 23 |
+| Tests passed | 298 / 298 |
+| Skipped tests | 0 |
+| Test duration | 54.26 seconds |
+
+The PostgreSQL integration tests cover database-backed quiz-attempt workflows, including answer persistence, grading, and submission behavior.
+
+**Additional quality checks:** TypeScript build, ESLint, and Prettier passed in the reported verification run.
+
+*Results reflect the latest recorded run and may change as the codebase evolves. PostgreSQL integration tests require a correctly configured test database and environment variables.*
+
+### Test Run Screenshot
+
+The following screenshot records the successful test run.
+
+![Smart Campus LMS backend test results](./Screenshot%202026-10-26%20112047.png)
 
 ## API Responses
 
@@ -150,20 +175,20 @@ The API uses structured JSON responses for successful operations and errors. Val
 
 - Passwords are hashed rather than stored as plaintext.
 - JWT authentication protects restricted endpoints.
-- Authorization rules enforce role and resource ownership.
+- Authorization rules enforce roles and resource ownership.
 - Request validation helps reject invalid input.
-- Environment-specific secrets must remain outside version control.
+- Environment-specific credentials must remain outside version control.
 
 ## Project Goals
 
-Smart Campus LMS is designed as a practical backend engineering project demonstrating API development, authentication, authorization, business-rule enforcement, modular design, and automated testing.
+Smart Campus LMS is a practical backend engineering project demonstrating API development, authentication, authorization, business-rule enforcement, modular design, database integration, and automated testing.
 
 ## Future Improvements
 
-- Expanded LMS workflows and assessment capabilities
-- Additional integration and database tests
-- API documentation and deployment configuration
-- Monitoring, logging, and performance improvements
+- Expand LMS workflows and assessment capabilities
+- Add further integration and database tests
+- Improve API documentation and deployment configuration
+- Add monitoring, logging, and performance improvements
 
 ## License
 
