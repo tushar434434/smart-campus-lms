@@ -522,4 +522,3 @@ describe('Submission Routes', () => {
     expect(response.json().error.code).toBe('SUBMISSION_NOT_FOUND');
   });
 });
-

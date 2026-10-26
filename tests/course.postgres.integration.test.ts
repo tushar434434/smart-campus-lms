@@ -1,5 +1,8 @@
+import dotenv from 'dotenv';
 import { afterAll, describe, expect, it } from 'vitest';
 import { createContainer } from '../src/container.js';
+
+dotenv.config({ path: '.env.test', override: true });
 
 const enabled = process.env.RUN_DB_INTEGRATION === 'true';
 

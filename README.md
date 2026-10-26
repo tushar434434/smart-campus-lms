@@ -7,6 +7,7 @@ The project emphasizes maintainable code, clear service boundaries, input valida
 ## Features
 
 ### Authentication and Authorization
+
 - User registration and login
 - JWT-based authentication
 - Secure password hashing with bcrypt
@@ -14,12 +15,14 @@ The project emphasizes maintainable code, clear service boundaries, input valida
 - Protected API endpoints
 
 ### Academic Management
+
 - Student record management
 - Course management
 - Assignment creation and management
 - Assignment deadlines and maximum-mark validation
 
 ### Submission Workflow
+
 - Create and retrieve assignment submissions
 - Update submissions with ownership and permission checks
 - Reject submissions after the assignment deadline
@@ -28,6 +31,7 @@ The project emphasizes maintainable code, clear service boundaries, input valida
 - Structured error responses for invalid operations
 
 ### Quality and Maintainability
+
 - TypeScript for static type checking
 - Zod-based request validation
 - Modular application structure
@@ -36,19 +40,19 @@ The project emphasizes maintainable code, clear service boundaries, input valida
 
 ## Technology Stack
 
-| Technology | Purpose |
-|---|---|
-| TypeScript | Type-safe application development |
-| Node.js | JavaScript runtime |
-| Fastify | HTTP server and API framework |
-| PostgreSQL | Relational database |
-| Prisma | Database access and schema management |
-| JWT | Authentication |
-| bcrypt | Password hashing |
-| Zod | Input validation |
-| Vitest | Automated testing |
-| ESLint | Static analysis |
-| Prettier | Code formatting |
+| Technology | Purpose                               |
+| ---------- | ------------------------------------- |
+| TypeScript | Type-safe application development     |
+| Node.js    | JavaScript runtime                    |
+| Fastify    | HTTP server and API framework         |
+| PostgreSQL | Relational database                   |
+| Prisma     | Database access and schema management |
+| JWT        | Authentication                        |
+| bcrypt     | Password hashing                      |
+| Zod        | Input validation                      |
+| Vitest     | Automated testing                     |
+| ESLint     | Static analysis                       |
+| Prettier   | Code formatting                       |
 
 ## Project Structure
 
@@ -71,7 +75,7 @@ backend/
 └── README.md
 ```
 
-*The module list above illustrates the main structure; exact filenames may vary.*
+_The module list above illustrates the main structure; exact filenames may vary._
 
 ## Prerequisites
 
@@ -116,14 +120,14 @@ npm run dev
 
 ## Available Commands
 
-| Command | Description |
-|---|---|
-| `npm run dev` | Start the development server |
-| `npm run build` | Compile TypeScript |
-| `npm start` | Run the compiled application |
-| `npm test` | Run the automated test suite |
-| `npm run lint` | Run ESLint |
-| `npm run format:check` | Check code formatting |
+| Command                | Description                  |
+| ---------------------- | ---------------------------- |
+| `npm run dev`          | Start the development server |
+| `npm run build`        | Compile TypeScript           |
+| `npm start`            | Run the compiled application |
+| `npm test`             | Run the automated test suite |
+| `npm run lint`         | Run ESLint                   |
+| `npm run format:check` | Check code formatting        |
 
 ## Testing and Validation
 

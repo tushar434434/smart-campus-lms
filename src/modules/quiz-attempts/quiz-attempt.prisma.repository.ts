@@ -78,6 +78,8 @@ export class PrismaQuizAttemptRepository implements QuizAttemptRepository {
       },
       {
         isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+        maxWait: 15_000,
+        timeout: 30_000,
       },
     );
   }
@@ -119,60 +121,63 @@ export class PrismaQuizAttemptRepository implements QuizAttemptRepository {
   }
 
   async saveAnswer(input: QuizAnswerInput): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
-      // Lock the attempt before checking its status.
-      await tx.$queryRaw`
+    await this.prisma.$transaction(
+      async (tx) => {
+        // Lock the attempt before checking its status.
+        await tx.$queryRaw`
         SELECT id
         FROM "QuizAttempt"
         WHERE id = ${input.attemptId}::uuid
         FOR UPDATE
       `;
 
-      const attempt = await tx.quizAttempt.findUnique({
-        where: { id: input.attemptId },
-      });
+        const attempt = await tx.quizAttempt.findUnique({
+          where: { id: input.attemptId },
+        });
 
-      if (!attempt) {
-        throw new Error('ATTEMPT_NOT_FOUND');
-      }
+        if (!attempt) {
+          throw new Error('ATTEMPT_NOT_FOUND');
+        }
 
-      if (attempt.status !== 'in_progress') {
-        throw new Error('ATTEMPT_ALREADY_SUBMITTED');
-      }
+        if (attempt.status !== 'in_progress') {
+          throw new Error('ATTEMPT_ALREADY_SUBMITTED');
+        }
 
-      const question = await tx.quizQuestion.findFirst({
-        where: {
-          id: input.questionId,
-          quizId: attempt.quizId,
-        },
-        select: { id: true },
-      });
+        const question = await tx.quizQuestion.findFirst({
+          where: {
+            id: input.questionId,
+            quizId: attempt.quizId,
+          },
+          select: { id: true },
+        });
 
-      if (!question) {
-        throw new Error('QUESTION_NOT_FOUND');
-      }
+        if (!question) {
+          throw new Error('QUESTION_NOT_FOUND');
+        }
 
-      await tx.quizAnswer.upsert({
-        where: {
-          attemptId_questionId: {
+        await tx.quizAnswer.upsert({
+          where: {
+            attemptId_questionId: {
+              attemptId: input.attemptId,
+              questionId: input.questionId,
+            },
+          },
+          create: {
             attemptId: input.attemptId,
             questionId: input.questionId,
+            selectedOption: input.selectedOption,
+            isCorrect: null,
+            marksAwarded: null,
           },
-        },
-        create: {
-          attemptId: input.attemptId,
-          questionId: input.questionId,
-          selectedOption: input.selectedOption,
-          isCorrect: null,
-          marksAwarded: null,
-        },
-        update: {
-          selectedOption: input.selectedOption,
-          isCorrect: null,
-          marksAwarded: null,
-        },
-      });
-    });
+          update: {
+            selectedOption: input.selectedOption,
+            isCorrect: null,
+            marksAwarded: null,
+          },
+        });
+      },
+      { timeout: 30_000, maxWait: 15_000 },
+    );
   }
 
   async submit(
@@ -336,6 +341,7 @@ export class PrismaQuizAttemptRepository implements QuizAttemptRepository {
       return this.toQuizAttempt(updated);
     });
   }
+
   private toQuizAttempt(attempt: {
     id: string;
     quizId: string;
