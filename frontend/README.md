@@ -60,7 +60,16 @@ npm audit
 - Student-facing quiz result details follow the backend's release policy. The
   correct option is not included in the attempt question endpoint.
 - Public registration creates student accounts only. Administrators can search
-  users, assign roles, and review role-change history from User management.
+  users, view basic account details, assign roles, and review role-change
+  history from User management. The administrator overview uses protected API
+  totals for users by role, courses, assignments, and quizzes, plus recent
+  registrations and role changes. Account status is not shown because the
+  backend schema does not currently have an account-status field.
+- The protected admin APIs include `GET /admin/dashboard/stats`,
+  `GET /admin/users`, `GET /admin/users/:userId`,
+  `PATCH /admin/users/:userId/role`, and
+  `GET /admin/role-audit-logs`. The backend verifies the current administrator
+  role on every request.
 - Password recovery uses emailed one-time codes. The OTP and temporary reset
   authorization stay in component memory and are not written to browser storage.
 - The backend does not currently register CORS. The Vite development proxy

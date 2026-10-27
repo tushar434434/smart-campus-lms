@@ -27,6 +27,7 @@ const navItems: NavItem[] = [
   { label: 'Courses', to: '/courses', icon: BookOpen },
   { label: 'Students', to: '/students', icon: Users, roles: ['faculty', 'admin'] },
   { label: 'User management', to: '/admin/users', icon: Shield, roles: ['admin'] },
+  { label: 'Admin overview', to: '/admin/overview', icon: LayoutDashboard, roles: ['admin'] },
   { label: 'Assignments', to: '/assignments', icon: ClipboardList },
   { label: 'Quizzes', to: '/quizzes', icon: GraduationCap },
 ];

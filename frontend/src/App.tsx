@@ -12,6 +12,7 @@ import { AssignmentsPage } from './pages/AssignmentsPage';
 import { QuizzesPage } from './pages/QuizzesPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
+import { AdminOverviewPage } from './pages/AdminOverviewPage';
 
 export default function App() {
   const { user } = useAuth();
@@ -31,6 +32,7 @@ export default function App() {
             <Route path="students/:studentId" element={<StudentDetailPage />} />
           </Route>
           <Route element={<ProtectedRoute roles={['admin']} />}>
+            <Route path="admin/overview" element={<AdminOverviewPage />} />
             <Route path="admin/users" element={<AdminUsersPage />} />
           </Route>
           <Route path="assignments" element={<AssignmentsPage />} />

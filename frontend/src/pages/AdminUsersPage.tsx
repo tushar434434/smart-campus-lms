@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { ArrowLeft, ArrowRight, Search, Shield } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Eye, Search, Shield, X } from 'lucide-react';
 import { ApiError } from '../api/client';
 import {
   adminApi,
@@ -34,6 +34,9 @@ export function AdminUsersPage() {
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState('');
 
   async function loadUsers(currentToken: string, isCurrent = () => true) {
     const result = await adminApi.listUsers(currentToken, {
@@ -126,6 +129,20 @@ export function AdminUsersPage() {
     }
   }
 
+  async function viewDetails(account: AdminUser) {
+    if (!token) return;
+    setSelectedUser(null);
+    setDetailsError('');
+    setDetailsLoading(true);
+    try {
+      setSelectedUser(await adminApi.getUser(token, account.id));
+    } catch {
+      setDetailsError('Unable to load account details. Try again.');
+    } finally {
+      setDetailsLoading(false);
+    }
+  }
+
   return (
     <div className="page-stack">
       <div className="page-intro">
@@ -209,8 +226,8 @@ export function AdminUsersPage() {
                   <th scope="col">Name</th>
                   <th scope="col">Email</th>
                   <th scope="col">Role</th>
-                  <th scope="col">Status</th>
                   <th scope="col">Change role</th>
+                  <th scope="col">Details</th>
                 </tr>
               </thead>
               <tbody>
@@ -225,9 +242,6 @@ export function AdminUsersPage() {
                     <td data-label="Email">{account.email}</td>
                     <td data-label="Role">
                       <span className="role-label">{account.role}</span>
-                    </td>
-                    <td data-label="Status">
-                      <span className="status-pill status-green">Active</span>
                     </td>
                     <td data-label="Change role">
                       <div className="admin-role-action">
@@ -255,6 +269,14 @@ export function AdminUsersPage() {
                           <span role="status">Saving…</span>
                         )}
                       </div>
+                    </td>
+                    <td data-label="Details">
+                      <button
+                        className="button button-outline button-small"
+                        onClick={() => void viewDetails(account)}
+                      >
+                        <Eye size={14} /> View
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -293,6 +315,57 @@ export function AdminUsersPage() {
           </div>
         )}
       </section>
+
+      {(detailsLoading || detailsError || selectedUser) && (
+        <div
+          className="modal-backdrop"
+          onClick={() => {
+            setSelectedUser(null);
+            setDetailsError('');
+          }}
+        >
+          <section
+            className="content-card admin-user-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="account-details-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="section-heading">
+              <div>
+                <h2 id="account-details-title">Account details</h2>
+                <p>Basic account information available to administrators.</p>
+              </div>
+              <button
+                className="icon-button"
+                aria-label="Close account details"
+                onClick={() => {
+                  setSelectedUser(null);
+                  setDetailsError('');
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            {detailsLoading && <LoadingState label="Loading account details" />}
+            {detailsError && <ErrorNotice message={detailsError} />}
+            {selectedUser && (
+              <dl className="admin-details-list">
+                <dt>Name</dt>
+                <dd>{selectedUser.name}</dd>
+                <dt>Email</dt>
+                <dd>{selectedUser.email}</dd>
+                <dt>Role</dt>
+                <dd>{selectedUser.role}</dd>
+                <dt>Registered</dt>
+                <dd>{new Date(selectedUser.createdAt).toLocaleString()}</dd>
+                <dt>Account ID</dt>
+                <dd>{selectedUser.id}</dd>
+              </dl>
+            )}
+          </section>
+        </div>
+      )}
 
       <section className="content-card">
         <div className="section-heading">

@@ -7,7 +7,18 @@ export interface AdminUser {
   email: string;
   role: UserRole;
   createdAt: string;
-  status: 'active';
+}
+
+export interface AdminDashboardStats {
+  totalUsers: number;
+  students: number;
+  faculty: number;
+  administrators: number;
+  courses: number;
+  assignments: number;
+  quizzes: number;
+  recentUsers: AdminUser[];
+  recentRoleChanges: RoleChangeAudit[];
 }
 
 export interface RoleChangeAudit {
@@ -24,6 +35,12 @@ export interface RoleChangeAudit {
 }
 
 export const adminApi = {
+  getDashboardStats: (token: string) =>
+    apiRequest<AdminDashboardStats>('/admin/dashboard/stats', { token }),
+  getUser: (token: string, userId: string) =>
+    apiRequest<AdminUser>(`/admin/users/${encodeURIComponent(userId)}`, {
+      token,
+    }),
   listUsers: (
     token: string,
     input: { page: number; limit: number; search?: string; role?: UserRole },

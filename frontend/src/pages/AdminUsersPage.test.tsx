@@ -13,6 +13,7 @@ import { AdminUsersPage } from './AdminUsersPage';
 
 const mocks = vi.hoisted(() => ({
   listUsers: vi.fn(),
+  getUser: vi.fn(),
   changeRole: vi.fn(),
   listRoleAuditLogs: vi.fn(),
 }));
@@ -37,7 +38,6 @@ const account = {
   email: 'student@example.test',
   role: 'student' as const,
   createdAt: '2026-10-27T00:00:00.000Z',
-  status: 'active' as const,
 };
 
 beforeEach(() => {
@@ -46,6 +46,7 @@ beforeEach(() => {
     users: [account],
     pagination,
   });
+  vi.mocked(adminApi.getUser).mockResolvedValue(account);
   vi.mocked(adminApi.listRoleAuditLogs).mockResolvedValue({
     logs: [],
     pagination: { ...pagination, total: 0, totalPages: 0 },
@@ -93,5 +94,18 @@ describe('admin user management UI', () => {
     expect(
       await screen.findByText("Student One's role was updated to faculty."),
     ).toBeTruthy();
+  });
+
+  it('loads account details without exposing private fields', async () => {
+    render(
+      <MemoryRouter>
+        <AdminUsersPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /view/i }));
+    expect(await screen.findByText('Account details')).toBeTruthy();
+    expect(await screen.findByText(account.id)).toBeTruthy();
+    expect(adminApi.getUser).toHaveBeenCalledWith('admin-token', account.id);
   });
 });
