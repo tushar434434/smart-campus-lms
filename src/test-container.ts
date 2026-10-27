@@ -3,6 +3,10 @@ import { createAssignmentService } from './modules/assignments/assignment.servic
 
 import { InMemoryAuthRepository } from './modules/auth/auth.repository.js';
 import { createAuthService } from './modules/auth/auth.service.js';
+import { InMemoryPasswordResetRepository } from './modules/auth/password-reset.repository.js';
+import { createPasswordResetService } from './modules/auth/password-reset.service.js';
+import { InMemoryAdminRepository } from './modules/admin/admin.repository.js';
+import { createAdminService } from './modules/admin/admin.service.js';
 
 import { InMemoryCourseRepository } from './modules/courses/course.repository.js';
 import { createCourseService } from './modules/courses/course.service.js';
@@ -37,6 +41,8 @@ export function createTestContainer() {
   const assignmentRepository = new InMemoryAssignmentRepository();
   const submissionRepository = new InMemorySubmissionRepository();
   const authRepository = new InMemoryAuthRepository();
+  const adminRepository = new InMemoryAdminRepository();
+  const passwordResetRepository = new InMemoryPasswordResetRepository();
   const quizRepository = new InMemoryQuizRepository();
   const quizAttemptRepository = new InMemoryQuizAttemptRepository(
     quizRepository,
@@ -68,6 +74,12 @@ export function createTestContainer() {
   );
 
   const authService = createAuthService(authRepository);
+  const adminService = createAdminService(adminRepository);
+  const passwordResetService = createPasswordResetService(
+    passwordResetRepository,
+    { sendPasswordResetOtp: async () => undefined },
+    { secret: 'test-reset-secret', ttlMinutes: 10 },
+  );
 
   const quizService = new QuizService(quizRepository, courseRepository);
 
@@ -97,6 +109,10 @@ export function createTestContainer() {
 
     authRepository,
     authService,
+    adminRepository,
+    adminService,
+    passwordResetRepository,
+    passwordResetService,
 
     quizRepository,
     quizService,

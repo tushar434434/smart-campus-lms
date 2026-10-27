@@ -15,9 +15,10 @@ type StudentInput = {
 
 describe('Student API', () => {
   let app: ReturnType<typeof buildApp>;
+  let container: ReturnType<typeof createTestContainer>;
 
   beforeEach(async () => {
-    const container = createTestContainer();
+    container = createTestContainer();
 
     app = buildApp(container);
     await app.ready();
@@ -35,6 +36,15 @@ describe('Student API', () => {
     role: 'student' | 'faculty' = 'student',
     email = `${role}.${crypto.randomUUID()}@example.com`,
   ) {
+    if (role === 'faculty') {
+      return container.authRepository.create({
+        name: `${role} Test User`,
+        email,
+        passwordHash: 'test-password-hash',
+        role,
+      });
+    }
+
     const response = await app.inject({
       method: 'POST',
       url: '/auth/register',
@@ -57,8 +67,22 @@ describe('Student API', () => {
   async function tokenFor(role: Role, userId?: string): Promise<string> {
     const user =
       userId === undefined
-        ? await createUser(role === 'admin' ? 'faculty' : role)
+        ? await container.authRepository.create({
+            name: `${role} Test User`,
+            email: `${role}.${crypto.randomUUID()}@example.com`,
+            passwordHash: 'test-password-hash',
+            role,
+          })
         : { id: userId };
+    if (userId === undefined && role === 'admin') {
+      container.adminRepository.addAccount({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        createdAt: user.createdAt,
+      });
+    }
 
     return app.jwt.sign({
       sub: user.id,

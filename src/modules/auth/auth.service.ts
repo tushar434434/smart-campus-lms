@@ -25,7 +25,7 @@ export function createAuthService(repository: AuthRepository) {
         name: input.name,
         email,
         passwordHash,
-        role: input.role,
+        role: 'student',
       });
 
       const { passwordHash: _passwordHash, ...safeUser } = user;

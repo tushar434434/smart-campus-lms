@@ -16,6 +16,8 @@ import { submissionRoutes } from './modules/submissions/submission.routes.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
 import { quizRoutes } from './modules/quizzes/quiz.routes.js';
 import { quizAttemptRoutes } from './modules/quiz-attempts/quiz-attempt.routes.js';
+import { adminRoutes } from './modules/admin/admin.routes.js';
+import { passwordResetRoutes } from './modules/auth/password-reset.routes.js';
 
 type HealthCheckPrisma = {
   $queryRaw: (
@@ -34,6 +36,11 @@ type AppContainer = {
   assignmentService: ReturnType<typeof createContainer>['assignmentService'];
   submissionService: ReturnType<typeof createContainer>['submissionService'];
   authService: ReturnType<typeof createContainer>['authService'];
+  adminService: ReturnType<typeof createContainer>['adminService'];
+  passwordResetService: ReturnType<
+    typeof createContainer
+  >['passwordResetService'];
+  authRepository: ReturnType<typeof createContainer>['authRepository'];
   quizService: ReturnType<typeof createContainer>['quizService'];
   quizAttemptService: ReturnType<typeof createContainer>['quizAttemptService'];
 };
@@ -142,9 +149,16 @@ export function buildApp(container: AppContainer) {
     assignmentService,
     submissionService,
     authService,
+    adminService,
+    passwordResetService,
+    authRepository,
     quizService,
     quizAttemptService,
   } = container;
+  app.decorate('getCurrentUserRole', async (userId: string) => {
+    const user = await authRepository.findById(userId);
+    return user?.role;
+  });
 
   app.get(
     '/health',
@@ -198,6 +212,12 @@ export function buildApp(container: AppContainer) {
   app.register(authRoutes, {
     prefix: '/auth',
     service: authService,
+  });
+  app.register(async (adminApp) => {
+    await adminRoutes(adminApp, adminService);
+  });
+  app.register(async (resetApp) => {
+    await passwordResetRoutes(resetApp, passwordResetService);
   });
 
   return app;

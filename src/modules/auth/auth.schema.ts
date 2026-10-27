@@ -6,8 +6,6 @@ export const registerSchema = z.object({
   email: z.string().trim().email('Invalid email address'),
 
   password: z.string().min(8, 'Password must be at least 8 characters'),
-
-  role: z.enum(['student', 'faculty']).default('student'),
 });
 
 export const loginSchema = z.object({

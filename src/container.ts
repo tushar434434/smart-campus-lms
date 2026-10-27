@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { config } from './config/env.js';
 
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from './generated/prisma/client.js';
@@ -8,6 +9,11 @@ import { createAssignmentService } from './modules/assignments/assignment.servic
 
 import { PrismaAuthRepository } from './modules/auth/auth.prisma.repository.js';
 import { createAuthService } from './modules/auth/auth.service.js';
+import { SmtpEmailService } from './modules/auth/email.service.js';
+import { PrismaPasswordResetRepository } from './modules/auth/password-reset.prisma.repository.js';
+import { createPasswordResetService } from './modules/auth/password-reset.service.js';
+import { PrismaAdminRepository } from './modules/admin/admin.prisma.repository.js';
+import { createAdminService } from './modules/admin/admin.service.js';
 
 import { createCourseService } from './modules/courses/course.service.js';
 import { PrismaCourseRepository } from './modules/courses/course.prisma.repository.js';
@@ -49,6 +55,8 @@ export function createContainer() {
   const enrollmentRepository = new PrismaEnrollmentRepository(prisma);
   const submissionRepository = new PrismaSubmissionRepository(prisma);
   const authRepository = new PrismaAuthRepository(prisma);
+  const adminRepository = new PrismaAdminRepository(prisma);
+  const passwordResetRepository = new PrismaPasswordResetRepository(prisma);
   const quizRepository = new PrismaQuizRepository(prisma);
 
   const quizAttemptRepository = new PrismaQuizAttemptRepository(prisma);
@@ -79,6 +87,19 @@ export function createContainer() {
   );
 
   const authService = createAuthService(authRepository);
+  const adminService = createAdminService(adminRepository);
+  const passwordResetService = createPasswordResetService(
+    passwordResetRepository,
+    new SmtpEmailService(config.smtp),
+    {
+      secret:
+        config.passwordResetSecret ??
+        config.jwtSecret ??
+        'test-only-password-reset-secret',
+      ttlMinutes: config.passwordResetOtpTtlMinutes,
+      logger: { warn: (message) => console.warn(message) },
+    },
+  );
 
   const quizService = new QuizService(quizRepository, courseRepository);
 
@@ -108,6 +129,10 @@ export function createContainer() {
 
     authRepository,
     authService,
+    adminRepository,
+    adminService,
+    passwordResetRepository,
+    passwordResetService,
 
     quizRepository,
     quizService,

@@ -108,9 +108,29 @@ Copy-Item .env.example .env
 
 Configure the required database connection and authentication variables. Never commit credentials or secrets.
 
+Password reset email requires `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`,
+`SMTP_PASS`, and `SMTP_FROM`. Set `PASSWORD_RESET_SECRET` to a separate random
+secret; if omitted, the service derives the OTP HMAC key from `JWT_SECRET`.
+`PASSWORD_RESET_OTP_TTL_MINUTES` defaults to 10 and accepts values from 1 to 30.
+The forgot-password API keeps its response generic if email delivery is
+unavailable; configure SMTP before enabling account recovery in production.
+
 ### 4. Configure the database
 
 Ensure PostgreSQL is running, configure the database connection, and apply the Prisma migrations or setup commands defined by the project.
+
+Apply migrations without resetting existing data:
+
+```powershell
+npx prisma migrate deploy
+npx prisma generate
+```
+
+The role audit and password-reset migration adds tables and indexes only; it
+does not drop or rewrite existing account data.
+
+Public registration always creates student accounts. Administrators promote
+accounts from the User management screen; no public admin-creation route exists.
 
 ### 5. Start the development server
 
