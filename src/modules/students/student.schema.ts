@@ -30,6 +30,12 @@ export const listStudentsSchema = z.object({
   search: z.string().trim().optional(),
 });
 
+export const listLinkableUsersSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
+  search: z.string().trim().optional(),
+});
+
 export const updateStudentSchema = createStudentSchema
   .partial()
   .refine((data) => Object.keys(data).length > 0, {
@@ -42,5 +48,6 @@ export const linkStudentUserSchema = z.object({
 
 export type CreateStudentInput = z.infer<typeof createStudentSchema>;
 export type ListStudentsInput = z.infer<typeof listStudentsSchema>;
+export type ListLinkableUsersInput = z.infer<typeof listLinkableUsersSchema>;
 export type UpdateStudentInput = z.infer<typeof updateStudentSchema>;
 export type LinkStudentUserInput = z.infer<typeof linkStudentUserSchema>;

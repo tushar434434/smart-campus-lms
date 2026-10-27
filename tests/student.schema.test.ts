@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createStudentSchema,
   linkStudentUserSchema,
+  listLinkableUsersSchema,
   listStudentsSchema,
   updateStudentSchema,
 } from '../src/modules/students/student.schema.js';
@@ -73,6 +74,22 @@ describe('listStudentsSchema', () => {
     expect(listStudentsSchema.parse({})).toEqual({
       page: 1,
       limit: 10,
+    });
+  });
+
+  describe('listLinkableUsersSchema', () => {
+    it('applies pagination defaults and trims search text', () => {
+      expect(listLinkableUsersSchema.parse({ search: '  Ada  ' })).toEqual({
+        page: 1,
+        limit: 10,
+        search: 'Ada',
+      });
+    });
+
+    it('rejects limits greater than 100', () => {
+      expect(listLinkableUsersSchema.safeParse({ limit: '101' }).success).toBe(
+        false,
+      );
     });
   });
 

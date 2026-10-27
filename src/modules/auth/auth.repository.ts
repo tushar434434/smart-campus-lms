@@ -33,4 +33,30 @@ export class InMemoryAuthRepository implements AuthRepository {
   async findAll(): Promise<User[]> {
     return this.users;
   }
+
+  async findStudentAccounts(input: {
+    page: number;
+    limit: number;
+    search?: string;
+    excludedUserIds: string[];
+  }) {
+    const search = input.search?.toLocaleLowerCase();
+    const accounts = this.users
+      .filter(
+        (user) =>
+          user.role === 'student' &&
+          !input.excludedUserIds.includes(user.id) &&
+          (!search ||
+            user.name.toLocaleLowerCase().includes(search) ||
+            user.email.toLocaleLowerCase().includes(search)),
+      )
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .map(({ id, name, email }) => ({ id, name, email }));
+    const startIndex = (input.page - 1) * input.limit;
+
+    return {
+      accounts: accounts.slice(startIndex, startIndex + input.limit),
+      total: accounts.length,
+    };
+  }
 }
