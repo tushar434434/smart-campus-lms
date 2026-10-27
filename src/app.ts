@@ -14,6 +14,7 @@ import { enrollmentRoutes } from './modules/enrollments/enrollment.routes.js';
 import { assignmentRoutes } from './modules/assignments/assignment.routes.js';
 import { submissionRoutes } from './modules/submissions/submission.routes.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
+import type { AuthRepository } from './modules/auth/auth.repository.interface.js';
 import { quizRoutes } from './modules/quizzes/quiz.routes.js';
 import { quizAttemptRoutes } from './modules/quiz-attempts/quiz-attempt.routes.js';
 import { adminRoutes } from './modules/admin/admin.routes.js';
@@ -40,7 +41,7 @@ type AppContainer = {
   passwordResetService: ReturnType<
     typeof createContainer
   >['passwordResetService'];
-  authRepository: ReturnType<typeof createContainer>['authRepository'];
+  authRepository: Pick<AuthRepository, 'findById'>;
   quizService: ReturnType<typeof createContainer>['quizService'];
   quizAttemptService: ReturnType<typeof createContainer>['quizAttemptService'];
 };

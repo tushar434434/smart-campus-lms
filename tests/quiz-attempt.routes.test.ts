@@ -68,6 +68,11 @@ describe('Quiz attempt routes', () => {
       assignmentService: {} as never,
       submissionService: {} as never,
       authService: {} as never,
+      adminService: {} as never,
+      passwordResetService: {} as never,
+      authRepository: {
+        findById: vi.fn().mockResolvedValue(undefined),
+      },
       quizService: {} as never,
       quizAttemptService: service as unknown as QuizAttemptService,
     });
@@ -114,7 +119,9 @@ describe('Quiz attempt routes', () => {
       method,
       url,
       headers,
-      payload: options.payload as object | undefined,
+      ...(options.payload !== undefined
+        ? { payload: options.payload as object }
+        : {}),
     });
   }
 
