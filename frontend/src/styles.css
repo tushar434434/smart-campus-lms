@@ -257,6 +257,18 @@ textarea.form-input { resize: vertical; line-height: 1.55; }
 .student-details-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .inline-link-form, .inline-enroll { display: flex; align-items: center; gap: 7px; margin-top: 12px; }
 .inline-link-form .form-input, .inline-enroll .form-input { flex: 1; min-width: 0; }
+.account-link-form { display: grid; gap: 7px; margin-top: 12px; }
+.account-options { position: relative; z-index: 2; margin-top: -5px; overflow: hidden; border: 1px solid #e7eaf0; border-radius: 8px; background: #fff; box-shadow: 0 8px 24px #16203318; }
+.account-option { display: grid; gap: 3px; padding: 9px 11px; cursor: pointer; }
+.account-option + .account-option { border-top: 1px solid #f0f2f5; }
+.account-option strong { font-size: 11px; }
+.account-option span, .account-state { color: #818c9b; font-size: 10px; }
+.account-option-active, .account-option:hover { background: #f5f6ff; }
+.account-state { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0; padding: 10px; }
+.account-load-more { width: 100%; padding: 9px; border: 0; border-top: 1px solid #f0f2f5; color: #5164d7; background: transparent; font: inherit; font-size: 10px; cursor: pointer; }
+.account-load-more:disabled { color: #818c9b; cursor: wait; }
+.selected-account { margin: 2px 0; color: #4b5665; font-size: 10px; }
+.link-success { margin: 10px 0 0; color: #24845b; font-size: 10px; }
 .inline-enroll { margin: 0 0 13px; max-width: 600px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .quiz-workspace { display: grid; grid-template-columns: minmax(310px, .8fr) minmax(0, 1.2fr); gap: 14px; align-items: start; }
