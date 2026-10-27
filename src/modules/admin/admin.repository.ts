@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { UserRole } from '../auth/auth.schema.js';
 import type {
   AdminRepository,
+  AdminDashboardStats,
   AdminUser,
   RoleChangeAudit,
   RoleChangeResult,
@@ -27,6 +28,31 @@ export class InMemoryAdminRepository implements AdminRepository {
     return this.accounts.get(userId)?.role;
   }
 
+  async getDashboardStats(): Promise<AdminDashboardStats> {
+    const accounts = [...this.accounts.values()];
+    const { logs } = await this.listRoleAuditLogs({ page: 1, limit: 5 });
+    return {
+      totalUsers: accounts.length,
+      students: accounts.filter((account) => account.role === 'student').length,
+      faculty: accounts.filter((account) => account.role === 'faculty').length,
+      administrators: accounts.filter((account) => account.role === 'admin')
+        .length,
+      courses: 0,
+      assignments: 0,
+      quizzes: 0,
+      recentUsers: accounts
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+        .slice(0, 5)
+        .map((account) => ({ ...account })),
+      recentRoleChanges: logs,
+    };
+  }
+
+  async getUser(userId: string): Promise<AdminUser | undefined> {
+    const account = this.accounts.get(userId);
+    return account ? { ...account } : undefined;
+  }
+
   async listUsers(input: {
     page: number;
     limit: number;
@@ -47,7 +73,6 @@ export class InMemoryAdminRepository implements AdminRepository {
     return {
       users: users.slice(start, start + input.limit).map((user) => ({
         ...user,
-        status: 'active',
       })),
       total: users.length,
     };

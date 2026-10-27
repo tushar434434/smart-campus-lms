@@ -14,6 +14,18 @@ export function createAdminService(repository: AdminRepository) {
       }
     },
 
+    async getDashboardStats() {
+      return repository.getDashboardStats();
+    },
+
+    async getUser(userId: string) {
+      const user = await repository.getUser(userId);
+      if (!user) {
+        throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+      }
+      return user;
+    },
+
     async listUsers(input: {
       page: number;
       limit: number;

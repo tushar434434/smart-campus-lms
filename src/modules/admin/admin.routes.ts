@@ -33,6 +33,29 @@ export async function adminRoutes(app: FastifyInstance, service: AdminService) {
   };
 
   app.get(
+    '/admin/dashboard/stats',
+    { preHandler: [authenticate, requireCurrentAdmin] },
+    async () =>
+      successResponse(
+        'Dashboard statistics retrieved successfully',
+        await service.getDashboardStats(),
+      ),
+  );
+
+  app.get<{ Params: { userId: string } }>(
+    '/admin/users/:userId',
+    { preHandler: [authenticate, requireCurrentAdmin] },
+    async (request) => {
+      const id = userIdSchema.safeParse(request.params.userId);
+      if (!id.success) throw validationError(id.error);
+      return successResponse(
+        'User retrieved successfully',
+        await service.getUser(id.data),
+      );
+    },
+  );
+
+  app.get(
     '/admin/users',
     {
       preHandler: [authenticate, requireCurrentAdmin],

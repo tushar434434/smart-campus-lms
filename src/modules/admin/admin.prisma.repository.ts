@@ -1,6 +1,7 @@
 import { Prisma, PrismaClient } from '../../generated/prisma/client.js';
 import type {
   AdminRepository,
+  AdminDashboardStats,
   AdminUser,
   RoleChangeAudit,
   RoleChangeResult,
@@ -24,6 +25,61 @@ export class PrismaAdminRepository implements AdminRepository {
       select: { role: true },
     });
     return user?.role;
+  }
+
+  async getDashboardStats(): Promise<AdminDashboardStats> {
+    const [
+      totalUsers,
+      students,
+      faculty,
+      administrators,
+      courses,
+      assignments,
+      quizzes,
+      recentUsers,
+      recentAudit,
+    ] = await Promise.all([
+      this.prisma.user.count(),
+      this.prisma.user.count({ where: { role: 'student' } }),
+      this.prisma.user.count({ where: { role: 'faculty' } }),
+      this.prisma.user.count({ where: { role: 'admin' } }),
+      this.prisma.course.count(),
+      this.prisma.assignment.count(),
+      this.prisma.quiz.count(),
+      this.prisma.user.findMany({
+        select: userSelect,
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.listRoleAuditLogs({ page: 1, limit: 5 }),
+    ]);
+
+    return {
+      totalUsers,
+      students,
+      faculty,
+      administrators,
+      courses,
+      assignments,
+      quizzes,
+      recentUsers: recentUsers.map((user) => ({
+        ...user,
+        createdAt: user.createdAt.toISOString(),
+      })),
+      recentRoleChanges: recentAudit.logs,
+    };
+  }
+
+  async getUser(userId: string): Promise<AdminUser | undefined> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: userSelect,
+    });
+    if (!user) return undefined;
+    return {
+      ...user,
+      createdAt: user.createdAt.toISOString(),
+    };
   }
 
   async listUsers(input: {
@@ -57,7 +113,6 @@ export class PrismaAdminRepository implements AdminRepository {
       users: users.map((user) => ({
         ...user,
         createdAt: user.createdAt.toISOString(),
-        status: 'active',
       })),
       total,
     };

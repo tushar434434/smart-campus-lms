@@ -58,6 +58,11 @@ describe('authentication security', () => {
       url: '/admin/users',
     });
     expect(unauthenticated.statusCode).toBe(401);
+    const unauthenticatedStats = await app.inject({
+      method: 'GET',
+      url: '/admin/dashboard/stats',
+    });
+    expect(unauthenticatedStats.statusCode).toBe(401);
 
     const student = await container.authRepository.create({
       name: 'Student Test',
@@ -79,6 +84,36 @@ describe('authentication security', () => {
       headers: { authorization: `Bearer ${token}` },
     });
     expect(forbidden.statusCode).toBe(403);
+    const forbiddenStats = await app.inject({
+      method: 'GET',
+      url: '/admin/dashboard/stats',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(forbiddenStats.statusCode).toBe(403);
+
+    const faculty = await container.authRepository.create({
+      name: 'Faculty Test',
+      email: 'faculty-test@example.test',
+      passwordHash: 'test-hash',
+      role: 'faculty',
+    });
+    container.adminRepository.addAccount({
+      id: faculty.id,
+      name: faculty.name,
+      email: faculty.email,
+      role: faculty.role,
+      createdAt: faculty.createdAt,
+    });
+    const facultyToken = app.jwt.sign({
+      sub: faculty.id,
+      role: 'admin',
+    });
+    const facultyStats = await app.inject({
+      method: 'GET',
+      url: '/admin/dashboard/stats',
+      headers: { authorization: `Bearer ${facultyToken}` },
+    });
+    expect(facultyStats.statusCode).toBe(403);
   });
 
   it('allows current administrators to list users and validates role updates', async () => {
@@ -111,6 +146,45 @@ describe('authentication security', () => {
       headers,
     });
     expect(listed.statusCode).toBe(200);
+
+    const stats = await app.inject({
+      method: 'GET',
+      url: '/admin/dashboard/stats',
+      headers,
+    });
+    expect(stats.statusCode).toBe(200);
+    expect(stats.json().data).toMatchObject({
+      totalUsers: 4,
+      students: 2,
+      administrators: 1,
+    });
+
+    const details = await app.inject({
+      method: 'GET',
+      url: `/admin/users/${target.id}`,
+      headers,
+    });
+    expect(details.statusCode).toBe(200);
+    expect(details.json().data).toMatchObject({
+      id: target.id,
+      email: target.email,
+      role: 'student',
+    });
+    expect(details.json().data).not.toHaveProperty('passwordHash');
+
+    const invalidDetailsId = await app.inject({
+      method: 'GET',
+      url: '/admin/users/not-a-uuid',
+      headers,
+    });
+    expect(invalidDetailsId.statusCode).toBe(400);
+
+    const missingDetails = await app.inject({
+      method: 'GET',
+      url: '/admin/users/00000000-0000-4000-8000-000000000001',
+      headers,
+    });
+    expect(missingDetails.statusCode).toBe(404);
 
     const invalidId = await app.inject({
       method: 'PATCH',

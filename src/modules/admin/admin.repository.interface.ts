@@ -6,7 +6,6 @@ export interface AdminUser {
   email: string;
   role: UserRole;
   createdAt: string;
-  status: 'active';
 }
 
 export interface RoleChangeAudit {
@@ -22,6 +21,18 @@ export interface RoleChangeAudit {
   createdAt: string;
 }
 
+export interface AdminDashboardStats {
+  totalUsers: number;
+  students: number;
+  faculty: number;
+  administrators: number;
+  courses: number;
+  assignments: number;
+  quizzes: number;
+  recentUsers: AdminUser[];
+  recentRoleChanges: RoleChangeAudit[];
+}
+
 export type RoleChangeResult =
   | { kind: 'changed'; audit: RoleChangeAudit }
   | { kind: 'unchanged' }
@@ -32,6 +43,8 @@ export type RoleChangeResult =
 
 export interface AdminRepository {
   findRole(userId: string): Promise<UserRole | undefined>;
+  getDashboardStats(): Promise<AdminDashboardStats>;
+  getUser(userId: string): Promise<AdminUser | undefined>;
   listUsers(input: {
     page: number;
     limit: number;

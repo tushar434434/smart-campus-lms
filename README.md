@@ -131,6 +131,42 @@ does not drop or rewrite existing account data.
 
 Public registration always creates student accounts. Administrators promote
 accounts from the User management screen; no public admin-creation route exists.
+Administrators can use the protected overview to review live account and
+academic-resource totals. Account status is not shown because the current user
+model has no status field.
+
+The admin API provides `GET /admin/dashboard/stats`,
+`GET /admin/users`, `GET /admin/users/:userId`,
+`PATCH /admin/users/:userId/role`, and `GET /admin/role-audit-logs`.
+Every endpoint authenticates the request and reloads the actor's current role
+from the database before allowing admin access.
+
+#### One-time initial administrator setup
+
+The bootstrap command promotes an explicitly configured existing account only.
+It requires the target account's current password (entered without echo),
+checks that no administrator exists under a PostgreSQL transaction lock, and
+fails if it has already been used. It neither creates an account nor changes a
+password. Keep the opt-in variables out of `.env`; they should exist only in
+the setup PowerShell process.
+
+Register the intended account normally first, then from PowerShell in the
+`backend` directory run:
+
+```powershell
+$env:ADMIN_BOOTSTRAP_ENABLED = "true"
+$env:ADMIN_BOOTSTRAP_EMAIL = "the-existing-account@example.com"
+npm run admin:bootstrap
+Remove-Item Env:ADMIN_BOOTSTRAP_ENABLED
+Remove-Item Env:ADMIN_BOOTSTRAP_EMAIL
+```
+
+The command prompts for the existing account password without displaying it.
+If setup fails, it prints a safe error and exits nonzero. After successful
+setup, the database contains an administrator, so subsequent attempts fail
+even if the opt-in variables are set again. No migration or database reset is
+needed. Treat the credential prompt as proof of control of the existing
+account; the current schema does not store a separate email-verification flag.
 
 ### 5. Start the development server
 

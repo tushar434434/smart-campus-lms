@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc --project tsconfig.build.json",
+    "admin:bootstrap": "tsx scripts/bootstrap-admin.ts",
     "start": "node dist/server.js",
     "lint": "eslint .",
     "format": "prettier --write .",

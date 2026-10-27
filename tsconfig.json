@@ -24,6 +24,10 @@
     "declaration": true,
     "declarationMap": true
   },
-  "include": ["src/**/*.ts", "tests/quiz-attempt.routes.test.ts"],
+  "include": [
+    "src/**/*.ts",
+    "scripts/**/*.ts",
+    "tests/quiz-attempt.routes.test.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }
