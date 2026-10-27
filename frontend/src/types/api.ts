@@ -40,6 +40,12 @@ export interface Student {
   createdAt: string;
 }
 
+export interface StudentAccount {
+  id: string;
+  name: string;
+  email: string;
+}
+
 export interface Assignment {
   id: string;
   courseId: string;
