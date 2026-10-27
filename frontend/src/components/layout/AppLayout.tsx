@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Shield,
   Users,
   X,
 } from 'lucide-react';
@@ -25,6 +26,7 @@ const navItems: NavItem[] = [
   { label: 'Overview', to: '/', icon: LayoutDashboard },
   { label: 'Courses', to: '/courses', icon: BookOpen },
   { label: 'Students', to: '/students', icon: Users, roles: ['faculty', 'admin'] },
+  { label: 'User management', to: '/admin/users', icon: Shield, roles: ['admin'] },
   { label: 'Assignments', to: '/assignments', icon: ClipboardList },
   { label: 'Quizzes', to: '/quizzes', icon: GraduationCap },
 ];
@@ -32,6 +34,7 @@ const navItems: NavItem[] = [
 function pageTitle(path: string) {
   if (path.startsWith('/courses/')) return 'Course overview';
   if (path.startsWith('/students/')) return 'Student profile';
+  if (path.startsWith('/admin/')) return 'User management';
   return navItems.find((item) => item.to === path)?.label ?? 'Learning workspace';
 }
 

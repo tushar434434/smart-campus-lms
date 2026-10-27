@@ -10,6 +10,8 @@ import { CourseDetailPage } from './pages/CourseDetailPage';
 import { StudentsPage, StudentDetailPage } from './pages/StudentsPage';
 import { AssignmentsPage } from './pages/AssignmentsPage';
 import { QuizzesPage } from './pages/QuizzesPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { AdminUsersPage } from './pages/AdminUsersPage';
 
 export default function App() {
   const { user } = useAuth();
@@ -18,6 +20,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
       <Route path="/register" element={user ? <Navigate to="/" replace /> : <RegisterPage />} />
+      <Route path="/forgot-password" element={user ? <Navigate to="/" replace /> : <ForgotPasswordPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route index element={<DashboardPage />} />
@@ -26,6 +29,9 @@ export default function App() {
           <Route element={<ProtectedRoute roles={['faculty', 'admin']} />}>
             <Route path="students" element={<StudentsPage />} />
             <Route path="students/:studentId" element={<StudentDetailPage />} />
+          </Route>
+          <Route element={<ProtectedRoute roles={['admin']} />}>
+            <Route path="admin/users" element={<AdminUsersPage />} />
           </Route>
           <Route path="assignments" element={<AssignmentsPage />} />
           <Route path="quizzes" element={<QuizzesPage />} />

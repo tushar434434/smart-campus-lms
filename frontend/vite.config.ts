@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => {
   const proxy = Object.fromEntries(
     [
       '/auth',
+      '/admin',
       '/courses',
       '/students',
       '/enrollments',

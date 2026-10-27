@@ -50,6 +50,7 @@ export function LoginPage() {
             <div className="input-with-icon"><Mail size={17} /><input id="email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@university.edu" /></div>
             <label className="field-label" htmlFor="password">Password</label>
             <div className="input-with-icon"><LockKeyhole size={17} /><input id="password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" /></div>
+            <div className="forgot-password-link"><Link to="/forgot-password">Forgot password?</Link></div>
             <button className="button button-primary button-full" disabled={busy} type="submit">{busy ? 'Signing in…' : 'Sign in'} <ArrowRight size={17} /></button>
           </form>
           <div className="auth-switch">New to Smart Campus? <Link to="/register">Create an account</Link></div>

@@ -343,6 +343,29 @@ textarea.form-input { resize: vertical; line-height: 1.55; }
 .back-link:hover { color: #4e63d9; }
 .auth-register .auth-form-wrap { width: min(390px, 100%); }
 .register-note { margin-top: 17px; color: #8c96a4; font-size: 9px; line-height: 1.65; }
+.forgot-password-link { display: flex; justify-content: flex-end; margin-top: -7px; }
+.forgot-password-link a, .resend-button { color: #5368e8; font-size: 10px; font-weight: 650; }
+.forgot-password-link a:hover, .resend-button:hover:not(:disabled) { color: #4054ce; text-decoration: underline; }
+.resend-button { margin-top: 15px; border: 0; background: transparent; padding: 5px 0; cursor: pointer; }
+.resend-button:disabled { color: #8b95a4; }
+.otp-input { text-align: center; letter-spacing: .45em; font-size: 19px !important; font-weight: 700; }
+.password-reset-input { min-height: 42px; display: flex; align-items: center; gap: 10px; border: 1px solid #e1e5eb; border-radius: 6px; padding: 0 11px; color: #8a95a5; }
+.password-reset-input:focus-within { border-color: #aeb9ff; outline: 3px solid #aeb9ff55; }
+.password-reset-input input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 11px; }
+.password-reset-input .icon-button { min-width: 30px; min-height: 30px; }
+.admin-toolbar { margin-bottom: 15px; }
+.admin-filter { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 10px; }
+.admin-filter .form-input, .admin-role-action .form-input { min-height: 33px; width: auto; padding: 0 9px; font-size: 10px; text-transform: capitalize; }
+.admin-table-wrap { width: 100%; overflow-x: auto; }
+.admin-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 10px; }
+.admin-table th { padding: 10px 12px; color: #838d9c; background: #fafbfc; font-size: 9px; font-weight: 650; white-space: nowrap; }
+.admin-table td { min-height: 45px; padding: 10px 12px; border-top: 1px solid var(--soft-line); color: #485365; }
+.admin-table td:first-child { color: var(--ink); font-weight: 650; }
+.admin-role-action { display: flex; align-items: center; gap: 8px; }
+.admin-role-action [role="status"] { color: var(--muted); font-size: 9px; }
+.admin-you, .admin-muted { color: #8993a2; font-size: 9px; font-weight: 400; }
+.role-label { text-transform: capitalize; font-weight: 650; }
+.admin-table .status-pill { white-space: nowrap; }
 .two-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .two-fields > div { display: grid; gap: 8px; }
 .quiz-runner { padding: 16px 18px 18px; }
@@ -424,6 +447,8 @@ textarea.form-input { resize: vertical; line-height: 1.55; }
   .auth-form-wrap { width: min(420px, 100%); }
   .auth-welcome { margin-top: 0; }
   .auth-security { margin-top: 28px; }
+  .admin-filter { width: 100%; justify-content: space-between; }
+  .admin-filter .form-input { flex: 1; max-width: 220px; }
 }
 
 @media (max-width: 520px) {
@@ -481,6 +506,8 @@ textarea.form-input { resize: vertical; line-height: 1.55; }
   .course-detail-hero { padding: 18px; gap: 12px; }
   .course-detail-hero h2 { font-size: 17px; }
   .course-detail-mark { width: 43px; height: 43px; }
+  .admin-table { min-width: 700px; }
+  .admin-toolbar { gap: 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

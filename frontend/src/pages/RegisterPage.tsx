@@ -10,7 +10,6 @@ export function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'student' | 'faculty'>('student');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -19,7 +18,7 @@ export function RegisterPage() {
     setError('');
     setBusy(true);
     try {
-      await register({ name, email, password, role });
+      await register({ name, email, password });
       navigate('/login', { replace: true, state: { registered: true } });
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Unable to create your account.');
@@ -44,7 +43,7 @@ export function RegisterPage() {
           <Link className="back-link" to="/login"><ArrowLeft size={16} /> Back to sign in</Link>
           <div className="auth-welcome">GET STARTED</div>
           <h2>Create your account</h2>
-          <p className="auth-subtitle">Register a student or faculty account.</p>
+          <p className="auth-subtitle">Create a student account to get started.</p>
           {error && <div className="notice notice-error" role="alert">{error}</div>}
           <form className="form-stack" onSubmit={submit}>
             <label className="field-label" htmlFor="name">Full name</label>
@@ -53,14 +52,9 @@ export function RegisterPage() {
             <input id="register-email" className="form-input" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@university.edu" />
             <label className="field-label" htmlFor="register-password">Password</label>
             <input id="register-password" className="form-input" type="password" autoComplete="new-password" minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters" />
-            <label className="field-label" htmlFor="role">Account type</label>
-            <select id="role" className="form-input" value={role} onChange={(event) => setRole(event.target.value as 'student' | 'faculty')}>
-              <option value="student">Student</option>
-              <option value="faculty">Faculty</option>
-            </select>
             <button className="button button-primary button-full" disabled={busy} type="submit">{busy ? 'Creating account…' : 'Create account'}</button>
           </form>
-          <p className="register-note">Registration creates an account only. A faculty member or administrator must create and link your student record before student submission and quiz workflows are available.</p>
+          <p className="register-note">Public registration creates student accounts. An administrator assigns faculty access; a faculty member or administrator must link a student record before student submission and quiz workflows are available.</p>
         </div>
       </div>
     </div>

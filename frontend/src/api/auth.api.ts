@@ -8,7 +8,10 @@ export interface LoginInput {
 
 export interface RegisterInput extends LoginInput {
   name: string;
-  role: 'student' | 'faculty';
+}
+
+export interface ResetPasswordResult {
+  resetToken: string;
 }
 
 export interface LoginResult {
@@ -22,4 +25,19 @@ export const authApi = {
   register: (input: RegisterInput) =>
     apiRequest<User>('/auth/register', { method: 'POST', body: input }),
   me: (token: string) => apiRequest<User>('/auth/me', { token }),
+  requestPasswordReset: (email: string) =>
+    apiRequest<void>('/auth/forgot-password', {
+      method: 'POST',
+      body: { email },
+    }),
+  verifyResetOtp: (email: string, otp: string) =>
+    apiRequest<ResetPasswordResult>('/auth/verify-reset-otp', {
+      method: 'POST',
+      body: { email, otp },
+    }),
+  resetPassword: (resetToken: string, newPassword: string) =>
+    apiRequest<void>('/auth/reset-password', {
+      method: 'POST',
+      body: { resetToken, newPassword },
+    }),
 };
