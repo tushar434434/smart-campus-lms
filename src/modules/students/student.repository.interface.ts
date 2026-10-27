@@ -14,6 +14,8 @@ export interface StudentRepository {
 
   findByUserId(userId: string): Promise<Student | undefined>;
 
+  findLinkedUserIds(): Promise<string[]>;
+
   linkUser(studentId: string, userId: string): Promise<Student | undefined>;
 
   delete(id: string): Promise<boolean>;

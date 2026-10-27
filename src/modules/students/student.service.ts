@@ -4,6 +4,7 @@ import type { AuthRepository } from '../auth/auth.repository.interface.js';
 
 import type {
   CreateStudentInput,
+  ListLinkableUsersInput,
   ListStudentsInput,
   UpdateStudentInput,
 } from './student.schema.js';
@@ -16,6 +17,43 @@ export function createStudentService(
   authRepository?: AuthRepository,
 ) {
   return {
+    async listLinkableUsers(studentId: string, input: ListLinkableUsersInput) {
+      if (!authRepository) {
+        throw new AppError(
+          'Authentication repository is not configured',
+          500,
+          'AUTH_REPOSITORY_NOT_CONFIGURED',
+        );
+      }
+
+      const student = await repository.findById(studentId);
+
+      if (!student) {
+        throw new AppError('Student not found', 404, 'STUDENT_NOT_FOUND');
+      }
+
+      const linkedUserIds = await repository.findLinkedUserIds();
+      const excludedUserIds = linkedUserIds.filter(
+        (userId) => userId !== student.userId,
+      );
+      const { accounts, total } = await authRepository.findStudentAccounts({
+        page: input.page,
+        limit: input.limit,
+        ...(input.search !== undefined ? { search: input.search } : {}),
+        excludedUserIds,
+      });
+
+      return {
+        accounts,
+        pagination: {
+          page: input.page,
+          limit: input.limit,
+          total,
+          totalPages: Math.ceil(total / input.limit),
+        },
+      };
+    },
+
     async linkStudentUser(studentId: string, userId: string) {
       if (!authRepository) {
         throw new AppError(

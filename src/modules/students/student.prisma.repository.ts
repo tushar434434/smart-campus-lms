@@ -1,4 +1,5 @@
 import { PrismaClient, Prisma } from '../../generated/prisma/client.js';
+import { AppError } from '../../errors/app-error.js';
 
 import type {
   CreateStudentInput,
@@ -54,27 +55,47 @@ export class PrismaStudentRepository implements StudentRepository {
     return student ? this.toStudent(student) : undefined;
   }
 
+  async findLinkedUserIds(): Promise<string[]> {
+    const students = await this.prisma.student.findMany({
+      where: { userId: { not: null } },
+      select: { userId: true },
+    });
+
+    return students.flatMap((student) =>
+      student.userId ? [student.userId] : [],
+    );
+  }
+
   async linkUser(
     studentId: string,
     userId: string,
   ): Promise<Student | undefined> {
     try {
-      const student = await this.prisma.student.update({
-        where: { id: studentId },
-        data: {
-          user: {
-            connect: { id: userId },
-          },
-        },
+      const result = await this.prisma.student.updateMany({
+        where: { id: studentId, userId: null },
+        data: { userId },
       });
 
-      return this.toStudent(student);
+      if (result.count === 0) return undefined;
+
+      return this.findById(studentId);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2025'
       ) {
         return undefined;
+      }
+
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new AppError(
+          'This account is already linked to another student',
+          409,
+          'USER_ALREADY_LINKED',
+        );
       }
 
       throw error;

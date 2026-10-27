@@ -7,6 +7,12 @@ export type CreateUserInput = {
   role: UserRole;
 };
 
+export interface StudentAccount {
+  id: string;
+  name: string;
+  email: string;
+}
+
 export interface AuthRepository {
   create(input: CreateUserInput): Promise<User>;
 
@@ -15,4 +21,11 @@ export interface AuthRepository {
   findById(id: string): Promise<User | undefined>;
 
   findAll(): Promise<User[]>;
+
+  findStudentAccounts(input: {
+    page: number;
+    limit: number;
+    search?: string;
+    excludedUserIds: string[];
+  }): Promise<{ accounts: StudentAccount[]; total: number }>;
 }

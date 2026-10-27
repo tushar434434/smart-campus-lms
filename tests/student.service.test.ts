@@ -40,6 +40,7 @@ describe('Student service - linkStudentUser', () => {
       findByEmail: vi.fn(),
       findByEnrollmentNumber: vi.fn(),
       findByUserId: vi.fn(),
+      findLinkedUserIds: vi.fn(),
       linkUser: vi.fn(),
       delete: vi.fn(),
       update: vi.fn(),
@@ -51,6 +52,7 @@ describe('Student service - linkStudentUser', () => {
       findByEmail: vi.fn(),
       findById: vi.fn(),
       findAll: vi.fn(),
+      findStudentAccounts: vi.fn(),
     };
 
     service = createStudentService(studentRepository, authRepository);
@@ -65,6 +67,48 @@ describe('Student service - linkStudentUser', () => {
       statusCode: 500,
       code: 'AUTH_REPOSITORY_NOT_CONFIGURED',
     });
+  });
+
+  it('returns only eligible student accounts and includes pagination', async () => {
+    const accounts = [
+      { id: 'user-2', name: 'Other Student', email: 'other@example.com' },
+    ];
+    vi.mocked(studentRepository.findById).mockResolvedValue(student);
+    vi.mocked(studentRepository.findLinkedUserIds).mockResolvedValue([
+      'user-linked-elsewhere',
+    ]);
+    vi.mocked(authRepository.findStudentAccounts).mockResolvedValue({
+      accounts,
+      total: 1,
+    });
+
+    await expect(
+      service.listLinkableUsers('student-1', {
+        page: 1,
+        limit: 10,
+        search: 'other',
+      }),
+    ).resolves.toEqual({
+      accounts,
+      pagination: { page: 1, limit: 10, total: 1, totalPages: 1 },
+    });
+
+    expect(authRepository.findStudentAccounts).toHaveBeenCalledWith({
+      page: 1,
+      limit: 10,
+      search: 'other',
+      excludedUserIds: ['user-linked-elsewhere'],
+    });
+  });
+
+  it('returns 404 for linkable-account lookup on a missing student', async () => {
+    vi.mocked(studentRepository.findById).mockResolvedValue(undefined);
+
+    await expect(
+      service.listLinkableUsers('missing-student', { page: 1, limit: 10 }),
+    ).rejects.toMatchObject({ statusCode: 404, code: 'STUDENT_NOT_FOUND' });
+
+    expect(authRepository.findStudentAccounts).not.toHaveBeenCalled();
   });
 
   it('throws when the student does not exist', async () => {
