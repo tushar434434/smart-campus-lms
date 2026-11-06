@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { ArrowLeft, ArrowRight, GraduationCap, Link2, Plus, Search, Trash2, Users } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { ApiError } from '../api/client';
@@ -6,7 +6,41 @@ import { listAllCourses } from '../api/courses.api';
 import { studentsApi, type StudentInput } from '../api/students.api';
 import { EmptyState, ErrorNotice, LoadingState, Modal, Notice } from '../components/ui/Feedback';
 import { useAuth } from '../contexts/AuthContext';
-import type { Course, Enrollment, Pagination, Student } from '../types/api';
+import type { Course, Enrollment, Pagination, Student, StudentAccount } from '../types/api';
+
+function accountLinkErrorMessage(error: unknown): string {
+  if (!(error instanceof ApiError)) return 'Unable to link the selected student account.';
+
+  switch (error.status) {
+    case 400:
+      return 'The selected account is invalid. Choose an account from the list and try again.';
+    case 401:
+      return 'Your session has expired. Please sign in again.';
+    case 403:
+      return 'Only faculty or administrators can link a student account.';
+    case 404:
+      return 'The student record or account could not be found. Refresh the profile and try again.';
+    case 409:
+      return 'This student or account was linked in another request. Refresh the profile and select an available account.';
+    default:
+      return 'Unable to link the selected student account. Please try again.';
+  }
+}
+
+function accountListErrorMessage(error: unknown): string {
+  if (!(error instanceof ApiError)) return 'Unable to load eligible student accounts.';
+
+  switch (error.status) {
+    case 401:
+      return 'Your session has expired. Please sign in again.';
+    case 403:
+      return 'Only faculty or administrators can view eligible student accounts.';
+    case 404:
+      return 'This student record could not be found. Refresh the page and try again.';
+    default:
+      return 'Unable to load eligible student accounts.';
+  }
+}
 
 export function StudentsPage() {
   const { token } = useAuth();
@@ -19,6 +53,7 @@ export function StudentsPage() {
   const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [createdEnrollmentNumber, setCreatedEnrollmentNumber] = useState('');
 
   useEffect(() => {
     if (!token) return;
@@ -51,14 +86,14 @@ export function StudentsPage() {
     const student: StudentInput = {
       name: String(form.get('name')).trim(),
       email: String(form.get('email')).trim(),
-      enrollmentNumber: String(form.get('enrollmentNumber')).trim(),
       department: String(form.get('department')).trim(),
       semester: Number(form.get('semester')),
     };
     setBusy(true);
     setError('');
     try {
-      await studentsApi.create(student, token);
+      const createdStudent = await studentsApi.create(student, token);
+      setCreatedEnrollmentNumber(createdStudent.enrollmentNumber);
       setCreating(false);
       setPage(1);
       setSearch('');
@@ -101,6 +136,11 @@ export function StudentsPage() {
           {pagination && <span className="result-count">{pagination.total} {pagination.total === 1 ? 'student' : 'students'}</span>}
         </div>
         {error && !creating && <ErrorNotice message={error} />}
+        {createdEnrollmentNumber && (
+          <Notice tone="success">
+            Student record created. Enrollment number: {createdEnrollmentNumber}
+          </Notice>
+        )}
         {loading ? <LoadingState label="Loading students" /> : students.length ? (
           <div className="data-list">
             {students.map((student) => (
@@ -129,7 +169,6 @@ export function StudentsPage() {
           <form className="form-stack modal-form" onSubmit={(event) => void createStudent(event)}>
             <label className="field-label" htmlFor="student-name">Full name</label><input className="form-input" id="student-name" name="name" required minLength={3} maxLength={100} />
             <label className="field-label" htmlFor="student-email">Email address</label><input className="form-input" id="student-email" name="email" type="email" required />
-            <label className="field-label" htmlFor="enrollment-number">Enrollment number</label><input className="form-input" id="enrollment-number" name="enrollmentNumber" required minLength={5} maxLength={30} />
             <label className="field-label" htmlFor="department">Department</label><input className="form-input" id="department" name="department" required minLength={2} maxLength={100} />
             <label className="field-label" htmlFor="semester">Semester</label><select className="form-input" id="semester" name="semester" defaultValue="1">{[1, 2, 3, 4, 5, 6, 7, 8].map((value) => <option key={value} value={value}>Semester {value}</option>)}</select>
             {error && <ErrorNotice message={error} />}
@@ -148,11 +187,24 @@ export function StudentDetailPage() {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [courseId, setCourseId] = useState('');
-  const [userId, setUserId] = useState('');
+  const [accountSearch, setAccountSearch] = useState('');
+  const [accountQuery, setAccountQuery] = useState('');
+  const [linkableAccounts, setLinkableAccounts] = useState<StudentAccount[]>([]);
+  const [selectedAccount, setSelectedAccount] = useState<StudentAccount | null>(null);
+  const [accountPage, setAccountPage] = useState(1);
+  const [hasMoreAccounts, setHasMoreAccounts] = useState(false);
+  const [accountsLoading, setAccountsLoading] = useState(false);
+  const [accountsError, setAccountsError] = useState('');
+  const [accountRetry, setAccountRetry] = useState(0);
+  const [accountSelectorOpen, setAccountSelectorOpen] = useState(true);
+  const [activeAccountIndex, setActiveAccountIndex] = useState(-1);
   const [editingProfile, setEditingProfile] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [linking, setLinking] = useState(false);
+  const [linkMessage, setLinkMessage] = useState('');
   const [error, setError] = useState('');
+  const linkingRef = useRef(false);
 
   async function load() {
     if (!token) return;
@@ -187,6 +239,92 @@ export function StudentDetailPage() {
     return () => { active = false; };
   }, [studentId, token]);
 
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setAccountQuery(accountSearch.trim());
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [accountSearch]);
+
+  useEffect(() => {
+    if (!token || !student || student.userId) return;
+    let active = true;
+    setAccountsLoading(true);
+    setAccountsError('');
+
+    studentsApi.linkableUsers(student.id, 1, accountQuery, token)
+      .then((result) => {
+        if (!active) return;
+        setLinkableAccounts(result.accounts);
+        setAccountPage(1);
+        setHasMoreAccounts(result.pagination.page < result.pagination.totalPages);
+        setActiveAccountIndex(-1);
+      })
+      .catch((caught: unknown) => {
+        if (active) setAccountsError(accountListErrorMessage(caught));
+      })
+      .finally(() => {
+        if (active) setAccountsLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [student?.id, student?.userId, token, accountQuery, accountRetry]);
+
+  async function loadMoreAccounts() {
+    if (!token || !student || accountsLoading || !hasMoreAccounts) return;
+    setAccountsLoading(true);
+    setAccountsError('');
+    const nextPage = accountPage + 1;
+    try {
+      const result = await studentsApi.linkableUsers(
+        student.id,
+        nextPage,
+        accountQuery,
+        token,
+      );
+      setLinkableAccounts((current) => [...current, ...result.accounts]);
+      setAccountPage(nextPage);
+      setHasMoreAccounts(result.pagination.page < result.pagination.totalPages);
+    } catch (caught) {
+      setAccountsError(accountListErrorMessage(caught));
+    } finally {
+      setAccountsLoading(false);
+    }
+  }
+
+  function selectAccount(account: StudentAccount) {
+    setSelectedAccount(account);
+    setAccountSelectorOpen(false);
+    setLinkMessage('');
+  }
+
+  function handleAccountKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === 'ArrowDown' && linkableAccounts.length > 0) {
+      event.preventDefault();
+      setAccountSelectorOpen(true);
+      setActiveAccountIndex((current) =>
+        current < 0 ? 0 : Math.min(current + 1, linkableAccounts.length - 1),
+      );
+    } else if (event.key === 'ArrowUp' && linkableAccounts.length > 0) {
+      event.preventDefault();
+      setAccountSelectorOpen(true);
+      setActiveAccountIndex((current) =>
+        current < 0 ? linkableAccounts.length - 1 : Math.max(current - 1, 0),
+      );
+    } else if (
+      event.key === 'Enter' &&
+      accountSelectorOpen &&
+      activeAccountIndex >= 0 &&
+      linkableAccounts[activeAccountIndex]
+    ) {
+      event.preventDefault();
+      selectAccount(linkableAccounts[activeAccountIndex]!);
+    } else if (event.key === 'Escape') {
+      setAccountSelectorOpen(false);
+    }
+  }
+
   async function addEnrollment() {
     if (!token || !courseId) return;
     setBusy(true);
@@ -215,19 +353,39 @@ export function StudentDetailPage() {
     }
   }
 
-  async function linkAccount(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!token) return;
+  async function unlinkAccount() {
+    if (!token || !window.confirm('Unlink this registered account from the student record?')) return;
     setBusy(true);
     setError('');
+    setLinkMessage('');
     try {
-      const linked = await studentsApi.linkUser(studentId, userId.trim(), token);
-      setStudent(linked);
-      setUserId('');
+      const unlinked = await studentsApi.unlinkUser(studentId, token);
+      setStudent(unlinked);
+      setLinkMessage('The registered account was unlinked. You can link a different account.');
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Unable to link account.');
+      setError(caught instanceof ApiError ? caught.message : 'Unable to unlink this account.');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function linkAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token || !selectedAccount || linkingRef.current) return;
+    linkingRef.current = true;
+    setLinking(true);
+    setError('');
+    setLinkMessage('');
+    try {
+      const linked = await studentsApi.linkUser(studentId, selectedAccount.id, token);
+      setStudent(linked);
+      setLinkMessage(`Linked ${selectedAccount.name} (${selectedAccount.email}) to this student record.`);
+      setSelectedAccount(null);
+    } catch (caught) {
+      setError(accountLinkErrorMessage(caught));
+    } finally {
+      linkingRef.current = false;
+      setLinking(false);
     }
   }
 
@@ -238,7 +396,6 @@ export function StudentDetailPage() {
     const input: StudentInput = {
       name: String(form.get('name')).trim(),
       email: String(form.get('email')).trim(),
-      enrollmentNumber: String(form.get('enrollmentNumber')).trim(),
       department: String(form.get('department')).trim(),
       semester: Number(form.get('semester')),
     };
@@ -273,8 +430,92 @@ export function StudentDetailPage() {
       </section>
       <section className="detail-grid student-details-grid">
         <article className="content-card detail-card"><div className="detail-card-icon violet"><GraduationCap size={18} /></div><div className="section-kicker">ACADEMIC RECORD</div><h3>{student.enrollmentNumber}</h3><p>{student.department} · Semester {student.semester}</p></article>
-        <article className="content-card detail-card"><div className="section-kicker">CAMPUS LOGIN</div><h3>{student.userId ? 'Linked account' : 'No account linked'}</h3><p>{student.userId ? `User ID: ${student.userId}` : 'Link the student record to a registered student account.'}</p>
-          {!student.userId && <form className="inline-link-form" onSubmit={(event) => void linkAccount(event)}><label className="sr-only" htmlFor="user-id">Student account user ID</label><input id="user-id" className="form-input" value={userId} onChange={(event) => setUserId(event.target.value)} placeholder="Registered user ID" required /><button className="button button-outline button-small" disabled={busy}><Link2 size={14} /> Link</button></form>}
+        <article className="content-card detail-card"><div className="section-kicker">CAMPUS LOGIN</div><h3>{student.userId ? 'Linked account' : 'No account linked'}</h3><p>{student.userId ? 'A registered student account is linked to this profile.' : 'Search for a registered student account to link this profile.'}</p>
+          {!student.userId && <form className="account-link-form" onSubmit={(event) => void linkAccount(event)}>
+            <label className="field-label" htmlFor="student-account-search">Registered student account</label>
+            <input
+              id="student-account-search"
+              className="form-input"
+              type="text"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={accountSelectorOpen}
+              aria-controls="eligible-student-accounts"
+              aria-activedescendant={
+                accountSelectorOpen &&
+                activeAccountIndex >= 0 &&
+                linkableAccounts[activeAccountIndex]
+                  ? `student-account-option-${linkableAccounts[activeAccountIndex]!.id}`
+                  : undefined
+              }
+              autoComplete="off"
+              value={accountSearch}
+              placeholder="Search by name or email"
+              onFocus={() => setAccountSelectorOpen(true)}
+              onChange={(event) => {
+                setAccountSearch(event.target.value);
+                setSelectedAccount(null);
+                setAccountSelectorOpen(true);
+                setActiveAccountIndex(-1);
+                setLinkableAccounts([]);
+                setAccountPage(1);
+                setHasMoreAccounts(false);
+                setAccountsLoading(true);
+                setAccountsError('');
+                setLinkMessage('');
+              }}
+              onKeyDown={handleAccountKeyDown}
+            />
+            <div className="account-options" hidden={!accountSelectorOpen}>
+              {accountsLoading && <p className="account-state" role="status">Loading student accounts…</p>}
+              {accountsError && <div className="account-state" role="alert">
+                <span>{accountsError}</span>
+                <button className="button button-small button-outline" type="button" onClick={() => setAccountRetry((count) => count + 1)}>Retry</button>
+              </div>}
+              {!accountsLoading && !accountsError && linkableAccounts.length === 0 && (
+                <p className="account-state">No eligible student accounts found.</p>
+              )}
+              {!accountsError && <div id="eligible-student-accounts" role="listbox" aria-label="Eligible student accounts">
+                {linkableAccounts.map((account, index) => (
+                  <div
+                    id={`student-account-option-${account.id}`}
+                    key={account.id}
+                    className={`account-option ${index === activeAccountIndex ? 'account-option-active' : ''}`}
+                    role="option"
+                    aria-selected={selectedAccount?.id === account.id}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onMouseEnter={() => setActiveAccountIndex(index)}
+                    onClick={() => selectAccount(account)}
+                  >
+                    <strong>{account.name}</strong>
+                    <span>{account.email}</span>
+                  </div>
+                ))}
+              </div>}
+              {hasMoreAccounts && !accountsError && (
+                <button className="account-load-more" type="button" disabled={accountsLoading} onClick={() => void loadMoreAccounts()}>
+                  {accountsLoading ? 'Loading…' : 'Load more accounts'}
+                </button>
+              )}
+            </div>
+            {selectedAccount && <p className="selected-account" role="status">
+              Selected: <strong>{selectedAccount.name}</strong> ({selectedAccount.email})
+            </p>}
+            <button className="button button-outline button-small" type="submit" disabled={!selectedAccount || linking || busy}>
+              <Link2 size={14} /> {linking ? 'Linking…' : 'Link account'}
+            </button>
+          </form>}
+          {student.userId && (
+            <button
+              className="button button-outline button-small"
+              type="button"
+              disabled={busy}
+              onClick={() => void unlinkAccount()}
+            >
+              Unlink account
+            </button>
+          )}
+          {linkMessage && <p className="link-success" role="status">{linkMessage}</p>}
         </article>
       </section>
       <section className="content-card">
@@ -297,7 +538,6 @@ export function StudentDetailPage() {
           <form className="form-stack modal-form" onSubmit={(event) => void updateProfile(event)}>
             <label className="field-label" htmlFor="edit-student-name">Full name</label><input className="form-input" id="edit-student-name" name="name" required minLength={3} maxLength={100} defaultValue={student.name} />
             <label className="field-label" htmlFor="edit-student-email">Email address</label><input className="form-input" id="edit-student-email" name="email" type="email" required defaultValue={student.email} />
-            <label className="field-label" htmlFor="edit-enrollment-number">Enrollment number</label><input className="form-input" id="edit-enrollment-number" name="enrollmentNumber" required minLength={5} maxLength={30} defaultValue={student.enrollmentNumber} />
             <label className="field-label" htmlFor="edit-department">Department</label><input className="form-input" id="edit-department" name="department" required minLength={2} maxLength={100} defaultValue={student.department} />
             <label className="field-label" htmlFor="edit-semester">Semester</label><select className="form-input" id="edit-semester" name="semester" defaultValue={student.semester}>{[1, 2, 3, 4, 5, 6, 7, 8].map((value) => <option key={value} value={value}>Semester {value}</option>)}</select>
             {error && <ErrorNotice message={error} />}
