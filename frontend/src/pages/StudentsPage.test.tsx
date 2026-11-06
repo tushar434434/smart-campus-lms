@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
     enrollments: vi.fn(),
     linkableUsers: vi.fn(),
     linkUser: vi.fn(),
+    unlinkUser: vi.fn(),
     update: vi.fn(),
     enroll: vi.fn(),
     removeEnrollment: vi.fn(),
@@ -187,5 +188,26 @@ describe('Student account linking', () => {
     expect(await screen.findByText(/linked in another request/)).toBeTruthy();
     expect(screen.queryByText('database constraint details')).toBeNull();
     expect(search).toBeTruthy();
+  });
+
+  it('unlinks a registered account from the student record', async () => {
+    vi.mocked(studentsApi.get).mockResolvedValue({
+      ...student,
+      userId: account.id,
+    });
+    vi.mocked(studentsApi.unlinkUser).mockResolvedValue({
+      ...student,
+      userId: null,
+    });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    renderProfile();
+    fireEvent.click(await screen.findByRole('button', { name: 'Unlink account' }));
+    await waitFor(() => {
+      expect(studentsApi.unlinkUser).toHaveBeenCalledWith(
+        student.id,
+        'faculty-token',
+      );
+    });
   });
 });

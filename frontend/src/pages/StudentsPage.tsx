@@ -53,6 +53,7 @@ export function StudentsPage() {
   const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [createdEnrollmentNumber, setCreatedEnrollmentNumber] = useState('');
 
   useEffect(() => {
     if (!token) return;
@@ -85,14 +86,14 @@ export function StudentsPage() {
     const student: StudentInput = {
       name: String(form.get('name')).trim(),
       email: String(form.get('email')).trim(),
-      enrollmentNumber: String(form.get('enrollmentNumber')).trim(),
       department: String(form.get('department')).trim(),
       semester: Number(form.get('semester')),
     };
     setBusy(true);
     setError('');
     try {
-      await studentsApi.create(student, token);
+      const createdStudent = await studentsApi.create(student, token);
+      setCreatedEnrollmentNumber(createdStudent.enrollmentNumber);
       setCreating(false);
       setPage(1);
       setSearch('');
@@ -135,6 +136,11 @@ export function StudentsPage() {
           {pagination && <span className="result-count">{pagination.total} {pagination.total === 1 ? 'student' : 'students'}</span>}
         </div>
         {error && !creating && <ErrorNotice message={error} />}
+        {createdEnrollmentNumber && (
+          <Notice tone="success">
+            Student record created. Enrollment number: {createdEnrollmentNumber}
+          </Notice>
+        )}
         {loading ? <LoadingState label="Loading students" /> : students.length ? (
           <div className="data-list">
             {students.map((student) => (
@@ -163,7 +169,6 @@ export function StudentsPage() {
           <form className="form-stack modal-form" onSubmit={(event) => void createStudent(event)}>
             <label className="field-label" htmlFor="student-name">Full name</label><input className="form-input" id="student-name" name="name" required minLength={3} maxLength={100} />
             <label className="field-label" htmlFor="student-email">Email address</label><input className="form-input" id="student-email" name="email" type="email" required />
-            <label className="field-label" htmlFor="enrollment-number">Enrollment number</label><input className="form-input" id="enrollment-number" name="enrollmentNumber" required minLength={5} maxLength={30} />
             <label className="field-label" htmlFor="department">Department</label><input className="form-input" id="department" name="department" required minLength={2} maxLength={100} />
             <label className="field-label" htmlFor="semester">Semester</label><select className="form-input" id="semester" name="semester" defaultValue="1">{[1, 2, 3, 4, 5, 6, 7, 8].map((value) => <option key={value} value={value}>Semester {value}</option>)}</select>
             {error && <ErrorNotice message={error} />}
@@ -348,6 +353,22 @@ export function StudentDetailPage() {
     }
   }
 
+  async function unlinkAccount() {
+    if (!token || !window.confirm('Unlink this registered account from the student record?')) return;
+    setBusy(true);
+    setError('');
+    setLinkMessage('');
+    try {
+      const unlinked = await studentsApi.unlinkUser(studentId, token);
+      setStudent(unlinked);
+      setLinkMessage('The registered account was unlinked. You can link a different account.');
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : 'Unable to unlink this account.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function linkAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token || !selectedAccount || linkingRef.current) return;
@@ -375,7 +396,6 @@ export function StudentDetailPage() {
     const input: StudentInput = {
       name: String(form.get('name')).trim(),
       email: String(form.get('email')).trim(),
-      enrollmentNumber: String(form.get('enrollmentNumber')).trim(),
       department: String(form.get('department')).trim(),
       semester: Number(form.get('semester')),
     };
@@ -485,6 +505,16 @@ export function StudentDetailPage() {
               <Link2 size={14} /> {linking ? 'Linking…' : 'Link account'}
             </button>
           </form>}
+          {student.userId && (
+            <button
+              className="button button-outline button-small"
+              type="button"
+              disabled={busy}
+              onClick={() => void unlinkAccount()}
+            >
+              Unlink account
+            </button>
+          )}
           {linkMessage && <p className="link-success" role="status">{linkMessage}</p>}
         </article>
       </section>
@@ -508,7 +538,6 @@ export function StudentDetailPage() {
           <form className="form-stack modal-form" onSubmit={(event) => void updateProfile(event)}>
             <label className="field-label" htmlFor="edit-student-name">Full name</label><input className="form-input" id="edit-student-name" name="name" required minLength={3} maxLength={100} defaultValue={student.name} />
             <label className="field-label" htmlFor="edit-student-email">Email address</label><input className="form-input" id="edit-student-email" name="email" type="email" required defaultValue={student.email} />
-            <label className="field-label" htmlFor="edit-enrollment-number">Enrollment number</label><input className="form-input" id="edit-enrollment-number" name="enrollmentNumber" required minLength={5} maxLength={30} defaultValue={student.enrollmentNumber} />
             <label className="field-label" htmlFor="edit-department">Department</label><input className="form-input" id="edit-department" name="department" required minLength={2} maxLength={100} defaultValue={student.department} />
             <label className="field-label" htmlFor="edit-semester">Semester</label><select className="form-input" id="edit-semester" name="semester" defaultValue={student.semester}>{[1, 2, 3, 4, 5, 6, 7, 8].map((value) => <option key={value} value={value}>Semester {value}</option>)}</select>
             {error && <ErrorNotice message={error} />}

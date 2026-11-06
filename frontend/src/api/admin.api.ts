@@ -6,6 +6,7 @@ export interface AdminUser {
   name: string;
   email: string;
   role: UserRole;
+  suspendedAt: string | null;
   createdAt: string;
 }
 
@@ -63,6 +64,15 @@ export const adminApi = {
         method: 'PATCH',
         token,
         body: { role },
+      },
+    ),
+  setSuspension: (token: string, userId: string, suspended: boolean) =>
+    apiRequest<AdminUser>(
+      `/admin/users/${encodeURIComponent(userId)}/suspension`,
+      {
+        method: 'PATCH',
+        token,
+        body: { suspended },
       },
     ),
   listRoleAuditLogs: (token: string, page = 1, limit = 10) =>

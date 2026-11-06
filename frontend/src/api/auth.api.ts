@@ -25,6 +25,22 @@ export const authApi = {
   register: (input: RegisterInput) =>
     apiRequest<User>('/auth/register', { method: 'POST', body: input }),
   me: (token: string) => apiRequest<User>('/auth/me', { token }),
+  updateProfile: (token: string, name: string) =>
+    apiRequest<User>('/auth/me', {
+      method: 'PATCH',
+      token,
+      body: { name },
+    }),
+  changePassword: (
+    token: string,
+    currentPassword: string,
+    newPassword: string,
+  ) =>
+    apiRequest<void>('/auth/change-password', {
+      method: 'POST',
+      token,
+      body: { currentPassword, newPassword },
+    }),
   requestPasswordReset: (email: string) =>
     apiRequest<void>('/auth/forgot-password', {
       method: 'POST',

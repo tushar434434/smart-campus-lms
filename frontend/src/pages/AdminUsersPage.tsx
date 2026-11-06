@@ -91,6 +91,39 @@ export function AdminUsersPage() {
     setSearch(searchInput.trim());
   }
 
+  async function setSuspension(account: AdminUser, suspended: boolean) {
+    if (!token || busyUserId) return;
+    const confirmed = window.confirm(
+      suspended
+        ? `Suspend ${account.name}? They will not be able to sign in.`
+        : `Restore ${account.name}'s account?`,
+    );
+    if (!confirmed) return;
+    setBusyUserId(account.id);
+    setError('');
+    setSuccess('');
+    try {
+      await adminApi.setSuspension(token, account.id, suspended);
+      setSuccess(
+        suspended
+          ? `${account.name}'s account was suspended.`
+          : `${account.name}'s account was restored.`,
+      );
+      await Promise.all([loadUsers(token), loadLogs(token)]);
+      if (selectedUser?.id === account.id) {
+        setSelectedUser(await adminApi.getUser(token, account.id));
+      }
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : 'Unable to update account status.',
+      );
+    } finally {
+      setBusyUserId(null);
+    }
+  }
+
   async function changeRole(account: AdminUser, nextRole: UserRole) {
     if (!token || nextRole === account.role || busyUserId) return;
     const confirmed = window.confirm(
@@ -226,6 +259,7 @@ export function AdminUsersPage() {
                   <th scope="col">Name</th>
                   <th scope="col">Email</th>
                   <th scope="col">Role</th>
+                  <th scope="col">Status</th>
                   <th scope="col">Change role</th>
                   <th scope="col">Details</th>
                 </tr>
@@ -242,6 +276,22 @@ export function AdminUsersPage() {
                     <td data-label="Email">{account.email}</td>
                     <td data-label="Role">
                       <span className="role-label">{account.role}</span>
+                    </td>
+                    <td data-label="Status">
+                      <span className={`status-pill ${account.suspendedAt ? 'status-neutral' : 'status-green'}`}>
+                        {account.suspendedAt ? 'Suspended' : 'Active'}
+                      </span>
+                      {account.id !== user?.id && (
+                        <button
+                          className="button button-outline button-small"
+                          disabled={busyUserId !== null}
+                          onClick={() =>
+                            void setSuspension(account, !account.suspendedAt)
+                          }
+                        >
+                          {account.suspendedAt ? 'Restore' : 'Suspend'}
+                        </button>
+                      )}
                     </td>
                     <td data-label="Change role">
                       <div className="admin-role-action">
@@ -357,6 +407,8 @@ export function AdminUsersPage() {
                 <dd>{selectedUser.email}</dd>
                 <dt>Role</dt>
                 <dd>{selectedUser.role}</dd>
+                <dt>Status</dt>
+                <dd>{selectedUser.suspendedAt ? 'Suspended' : 'Active'}</dd>
                 <dt>Registered</dt>
                 <dd>{new Date(selectedUser.createdAt).toLocaleString()}</dd>
                 <dt>Account ID</dt>

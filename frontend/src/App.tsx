@@ -13,18 +13,29 @@ import { QuizzesPage } from './pages/QuizzesPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
 import { AdminOverviewPage } from './pages/AdminOverviewPage';
+import { ProfilePage } from './pages/ProfilePage';
 
 export default function App() {
   const { user } = useAuth();
 
   return (
     <Routes>
-      <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
-      <Route path="/register" element={user ? <Navigate to="/" replace /> : <RegisterPage />} />
-      <Route path="/forgot-password" element={user ? <Navigate to="/" replace /> : <ForgotPasswordPage />} />
+      <Route
+        path="/login"
+        element={user ? <Navigate to="/" replace /> : <LoginPage />}
+      />
+      <Route
+        path="/register"
+        element={user ? <Navigate to="/" replace /> : <RegisterPage />}
+      />
+      <Route
+        path="/forgot-password"
+        element={user ? <Navigate to="/" replace /> : <ForgotPasswordPage />}
+      />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route index element={<DashboardPage />} />
+          <Route path="profile" element={<ProfilePage />} />
           <Route path="courses" element={<CoursesPage />} />
           <Route path="courses/:courseId" element={<CourseDetailPage />} />
           <Route element={<ProtectedRoute roles={['faculty', 'admin']} />}>
@@ -39,7 +50,10 @@ export default function App() {
           <Route path="quizzes" element={<QuizzesPage />} />
         </Route>
       </Route>
-      <Route path="*" element={<Navigate to={user ? '/' : '/login'} replace />} />
+      <Route
+        path="*"
+        element={<Navigate to={user ? '/' : '/login'} replace />}
+      />
     </Routes>
   );
 }

@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
   changeRole: vi.fn(),
   listRoleAuditLogs: vi.fn(),
+  setSuspension: vi.fn(),
 }));
 
 vi.mock('../api/admin.api', () => ({ adminApi: mocks }));
@@ -37,6 +38,7 @@ const account = {
   name: 'Student One',
   email: 'student@example.test',
   role: 'student' as const,
+  suspendedAt: null,
   createdAt: '2026-10-27T00:00:00.000Z',
 };
 
@@ -107,5 +109,25 @@ describe('admin user management UI', () => {
     expect(await screen.findByText('Account details')).toBeTruthy();
     expect(await screen.findByText(account.id)).toBeTruthy();
     expect(adminApi.getUser).toHaveBeenCalledWith('admin-token', account.id);
+  });
+
+  it('confirms account suspension', async () => {
+    vi.mocked(adminApi.setSuspension).mockResolvedValue({
+      ...account,
+      suspendedAt: '2026-11-06T00:00:00.000Z',
+    });
+    render(
+      <MemoryRouter>
+        <AdminUsersPage />
+      </MemoryRouter>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Suspend' }));
+    await waitFor(() => {
+      expect(adminApi.setSuspension).toHaveBeenCalledWith(
+        'admin-token',
+        'user-1',
+        true,
+      );
+    });
   });
 });
