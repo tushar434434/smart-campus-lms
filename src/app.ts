@@ -4,11 +4,13 @@ import jwt from '@fastify/jwt';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import rateLimit from '@fastify/rate-limit';
+import multipart from '@fastify/multipart';
 
 import { errorHandler } from './errors/error-handler.js';
 import { createContainer } from './container.js';
 
 import { courseRoutes } from './modules/courses/course.routes.js';
+import { courseMaterialRoutes } from './modules/courses/course-material.routes.js';
 import { studentRoutes } from './modules/students/student.routes.js';
 import { enrollmentRoutes } from './modules/enrollments/enrollment.routes.js';
 import { assignmentRoutes } from './modules/assignments/assignment.routes.js';
@@ -19,6 +21,7 @@ import { quizRoutes } from './modules/quizzes/quiz.routes.js';
 import { quizAttemptRoutes } from './modules/quiz-attempts/quiz-attempt.routes.js';
 import { adminRoutes } from './modules/admin/admin.routes.js';
 import { passwordResetRoutes } from './modules/auth/password-reset.routes.js';
+import { reportRoutes } from './modules/reports/report.routes.js';
 
 type HealthCheckPrisma = {
   $queryRaw: (
@@ -31,6 +34,9 @@ type HealthCheckPrisma = {
 type AppContainer = {
   prisma: HealthCheckPrisma;
   courseService: ReturnType<typeof createContainer>['courseService'];
+  courseMaterialService: ReturnType<
+    typeof createContainer
+  >['courseMaterialService'];
   studentService: ReturnType<typeof createContainer>['studentService'];
   studentRepository: import('./modules/students/student.repository.interface.js').StudentRepository;
   enrollmentService: ReturnType<typeof createContainer>['enrollmentService'];
@@ -44,6 +50,7 @@ type AppContainer = {
   authRepository: Pick<AuthRepository, 'findById'>;
   quizService: ReturnType<typeof createContainer>['quizService'];
   quizAttemptService: ReturnType<typeof createContainer>['quizAttemptService'];
+  reportService?: ReturnType<typeof createContainer>['reportService'];
 };
 
 export function buildApp(container: AppContainer) {
@@ -138,12 +145,20 @@ export function buildApp(container: AppContainer) {
       },
     }),
   });
+  app.register(multipart, {
+    limits: {
+      fileSize: 10 * 1024 * 1024,
+      files: 1,
+      fields: 1,
+    },
+  });
 
   app.setErrorHandler(errorHandler);
 
   const {
     prisma,
     courseService,
+    courseMaterialService,
     studentService,
     studentRepository,
     enrollmentService,
@@ -155,10 +170,16 @@ export function buildApp(container: AppContainer) {
     authRepository,
     quizService,
     quizAttemptService,
+    reportService,
   } = container;
   app.decorate('getCurrentUserRole', async (userId: string) => {
     const user = await authRepository.findById(userId);
-    return user?.role;
+    if (!user || user.suspendedAt) return undefined;
+    return user.role;
+  });
+  app.decorate('isAccountSuspended', async (userId: string) => {
+    const user = await authRepository.findById(userId);
+    return Boolean(user?.suspendedAt);
   });
 
   app.get(
@@ -197,6 +218,9 @@ export function buildApp(container: AppContainer) {
   );
 
   app.register(courseRoutes, { service: courseService });
+  app.register(async (materialApp) => {
+    await courseMaterialRoutes(materialApp, courseMaterialService);
+  });
   app.register(studentRoutes, { service: studentService });
   app.register(enrollmentRoutes, { service: enrollmentService });
   app.register(assignmentRoutes, { service: assignmentService });
@@ -207,8 +231,18 @@ export function buildApp(container: AppContainer) {
   });
 
   app.register(async (attemptApp) => {
-    await quizAttemptRoutes(attemptApp, quizAttemptService, studentRepository);
+    await quizAttemptRoutes(
+      attemptApp,
+      quizAttemptService,
+      studentRepository,
+      authRepository,
+    );
   });
+  if (reportService) {
+    app.register(async (reportApp) => {
+      await reportRoutes(reportApp, reportService);
+    });
+  }
 
   app.register(authRoutes, {
     prefix: '/auth',

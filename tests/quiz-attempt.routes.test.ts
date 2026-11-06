@@ -42,6 +42,8 @@ describe('Quiz attempt routes', () => {
 
   const service = {
     start: vi.fn(),
+    getStudentActivity: vi.fn(),
+    getQuizRoster: vi.fn(),
     getQuestions: vi.fn(),
     saveAnswer: vi.fn(),
     recordProctoringEvent: vi.fn(),
@@ -51,6 +53,12 @@ describe('Quiz attempt routes', () => {
 
   const studentRepository = {
     findByUserId: vi.fn().mockResolvedValue({ id: STUDENT_ID }),
+    findByEmail: vi.fn().mockResolvedValue(undefined),
+    linkUser: vi.fn(),
+  };
+
+  const authRepository = {
+    findById: vi.fn().mockResolvedValue(undefined),
   };
 
   beforeAll(async () => {
@@ -70,9 +78,7 @@ describe('Quiz attempt routes', () => {
       authService: {} as never,
       adminService: {} as never,
       passwordResetService: {} as never,
-      authRepository: {
-        findById: vi.fn().mockResolvedValue(undefined),
-      },
+      authRepository: authRepository as never,
       quizService: {} as never,
       quizAttemptService: service as unknown as QuizAttemptService,
     });
@@ -87,6 +93,9 @@ describe('Quiz attempt routes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     studentRepository.findByUserId.mockResolvedValue({ id: STUDENT_ID });
+    studentRepository.findByEmail.mockResolvedValue(undefined);
+    studentRepository.linkUser.mockResolvedValue(undefined);
+    authRepository.findById.mockResolvedValue(undefined);
   });
 
   function token(
@@ -134,6 +143,20 @@ describe('Quiz attempt routes', () => {
     expect(service.start).not.toHaveBeenCalled();
   });
 
+  it('returns activity for the linked student account', async () => {
+    service.getStudentActivity.mockResolvedValue([{ id: ATTEMPT_ID }]);
+    const response = await request('GET', '/attempts/me');
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data).toEqual([{ id: ATTEMPT_ID }]);
+    expect(service.getStudentActivity).toHaveBeenCalledWith(STUDENT_ID);
+  });
+
+  it('does not expose the student activity endpoint to faculty', async () => {
+    const response = await request('GET', '/attempts/me', { role: 'faculty' });
+    expect(response.statusCode).toBe(403);
+    expect(service.getStudentActivity).not.toHaveBeenCalled();
+  });
+
   it.each(['faculty', 'admin'] as const)(
     'rejects the %s role from student attempt routes',
     async (role) => {
@@ -172,6 +195,71 @@ describe('Quiz attempt routes', () => {
     expect(response.statusCode).toBe(403);
     expect(response.json().error.code).toBe('STUDENT_NOT_LINKED');
     expect(service.start).not.toHaveBeenCalled();
+  });
+
+  it('links a matching unlinked student profile and starts the attempt', async () => {
+    studentRepository.findByUserId.mockResolvedValue(undefined);
+    authRepository.findById.mockResolvedValue({
+      id: USER_ID,
+      email: 'student@example.com',
+      role: 'student',
+      suspendedAt: null,
+    });
+    studentRepository.findByEmail.mockResolvedValue({
+      id: STUDENT_ID,
+      userId: null,
+      email: 'student@example.com',
+    });
+    studentRepository.linkUser.mockResolvedValue({
+      id: STUDENT_ID,
+      userId: USER_ID,
+    });
+    service.start.mockResolvedValue(makeAttempt());
+
+    const response = await request('POST', `/quizzes/${QUIZ_ID}/attempts`);
+
+    expect(response.statusCode).toBe(201);
+    expect(studentRepository.linkUser).toHaveBeenCalledWith(
+      STUDENT_ID,
+      USER_ID,
+    );
+    expect(service.start).toHaveBeenCalledWith(QUIZ_ID, STUDENT_ID);
+  });
+
+  it('does not start when the account email does not match a student profile', async () => {
+    studentRepository.findByUserId.mockResolvedValue(undefined);
+    authRepository.findById.mockResolvedValue({
+      id: USER_ID,
+      email: 'account@example.com',
+      role: 'student',
+      suspendedAt: null,
+    });
+    studentRepository.findByEmail.mockResolvedValue(undefined);
+
+    const response = await request('POST', `/quizzes/${QUIZ_ID}/attempts`);
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json().error.code).toBe('STUDENT_NOT_LINKED');
+    expect(studentRepository.linkUser).not.toHaveBeenCalled();
+    expect(service.start).not.toHaveBeenCalled();
+  });
+
+  it('rejects a linked student without approved enrollment', async () => {
+    service.start.mockRejectedValue(new Error('NOT_ENROLLED'));
+
+    const response = await request('POST', `/quizzes/${QUIZ_ID}/attempts`);
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json().error.code).toBe('NOT_ENROLLED');
+  });
+
+  it('maps repository enrollment denials without becoming an internal error', async () => {
+    service.start.mockRejectedValue(new Error('STUDENT_NOT_ENROLLED'));
+
+    const response = await request('POST', `/quizzes/${QUIZ_ID}/attempts`);
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json().error.code).toBe('STUDENT_NOT_ENROLLED');
   });
 
   it('returns questions without correct answers', async () => {

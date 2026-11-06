@@ -7,12 +7,16 @@ import type {
 } from '../src/modules/quiz-attempts/quiz-attempt.repository.interface.js';
 import type { QuizRepository } from '../src/modules/quizzes/quiz.repository.interface.js';
 import type { EnrollmentRepository } from '../src/modules/enrollments/enrollment.repository.interface.js';
+import type { CourseRepository } from '../src/modules/courses/course.repository.interface.js';
+import type { StudentRepository } from '../src/modules/students/student.repository.interface.js';
 
 describe('QuizAttemptService', () => {
   let service: QuizAttemptService;
   let attempts: QuizAttemptRepository;
   let quizzes: QuizRepository;
   let enrollments: EnrollmentRepository;
+  let courses: CourseRepository;
+  let students: StudentRepository;
 
   const quizId = 'quiz-123';
   const studentId = 'student-123';
@@ -53,9 +57,13 @@ describe('QuizAttemptService', () => {
     attempts = {
       start: vi.fn().mockResolvedValue(attempt),
       findById: vi.fn(),
+      findByQuizId: vi.fn().mockResolvedValue([]),
+      findByStudentId: vi.fn().mockResolvedValue([]),
       countByQuizAndStudent: vi.fn().mockResolvedValue(0),
       findQuestions: vi.fn(),
       saveAnswer: vi.fn(),
+      setBookmark: vi.fn(),
+      findBookmarkedQuestionIds: vi.fn().mockResolvedValue([]),
       recordProctoringEvent: vi.fn(),
       findAnswersByAttemptId: vi.fn().mockResolvedValue([]),
       submit: vi.fn(),
@@ -66,10 +74,134 @@ describe('QuizAttemptService', () => {
     } as unknown as QuizRepository;
 
     enrollments = {
-      findByStudentAndCourse: vi.fn().mockResolvedValue({ id: 'enrollment-1' }),
+      findByStudentAndCourse: vi.fn().mockResolvedValue({
+        id: 'enrollment-1',
+        status: 'approved',
+      }),
+      findAllByCourseId: vi.fn().mockResolvedValue([]),
     } as unknown as EnrollmentRepository;
 
-    service = new QuizAttemptService(attempts, quizzes, enrollments);
+    courses = {
+      findById: vi.fn().mockResolvedValue({
+        id: 'course-123',
+        ownerFacultyId: 'faculty-123',
+        approvalStatus: 'approved',
+        title: 'Test course',
+      }),
+    } as unknown as CourseRepository;
+    students = {
+      findById: vi.fn().mockResolvedValue({
+        id: studentId,
+        name: 'Test student',
+        email: 'student@example.com',
+        enrollmentNumber: 'SC2026-000001',
+      }),
+    } as unknown as StudentRepository;
+
+    service = new QuizAttemptService(
+      attempts,
+      quizzes,
+      enrollments,
+      courses,
+      students,
+    );
+  });
+
+  it('returns student activity with hidden marks and numbered attempts', async () => {
+    const earlierAttempt = {
+      ...attempt,
+      id: 'attempt-earlier',
+      startedAt: new Date(1),
+    };
+    const laterAttempt = {
+      ...attempt,
+      id: 'attempt-later',
+      score: 18,
+      startedAt: new Date(2),
+    };
+    vi.mocked(attempts.findByStudentId).mockResolvedValue([
+      laterAttempt,
+      earlierAttempt,
+    ]);
+
+    await expect(service.getStudentActivity(studentId)).resolves.toEqual([
+      expect.objectContaining({
+        id: 'attempt-later',
+        score: null,
+        attemptNumber: 2,
+        remainingAttempts: 0,
+        quizTitle: quiz.title,
+        courseTitle: 'Test course',
+      }),
+      expect.objectContaining({
+        id: 'attempt-earlier',
+        attemptNumber: 1,
+      }),
+    ]);
+  });
+
+  it('returns an enrolled class roster only to the owning faculty member', async () => {
+    vi.mocked(enrollments.findAllByCourseId).mockResolvedValue([
+      {
+        id: 'enrollment-1',
+        studentId,
+        courseId: quiz.courseId,
+        status: 'approved',
+        enrolledAt: new Date(),
+      },
+    ] as never);
+    vi.mocked(attempts.findByQuizId).mockResolvedValue([attempt]);
+
+    const roster = await service.getQuizRoster(quizId, {
+      sub: 'faculty-123',
+      role: 'faculty',
+    });
+
+    expect(roster).toEqual([
+      expect.objectContaining({
+        student: expect.objectContaining({ id: studentId }),
+        attemptCount: 1,
+        status: 'in_progress',
+      }),
+    ]);
+    await expect(
+      service.getQuizRoster(quizId, { sub: 'other-faculty', role: 'faculty' }),
+    ).rejects.toThrow('FORBIDDEN');
+  });
+
+  it('hydrates an active attempt with saved answers and bookmarks without answer keys', async () => {
+    vi.mocked(attempts.findById).mockResolvedValue(attempt);
+    vi.mocked(attempts.findQuestions).mockResolvedValue([
+      {
+        id: 'question-1',
+        quizId,
+        questionText: 'Question text',
+        optionA: 'A',
+        optionB: 'B',
+        optionC: 'C',
+        optionD: 'D',
+        marks: 1,
+      },
+    ]);
+    vi.mocked(attempts.findAnswersByAttemptId).mockResolvedValue([
+      {
+        questionId: 'question-1',
+        selectedOption: 'B',
+        correctOption: 'B',
+        marks: 1,
+        marksAwarded: 1,
+      },
+    ]);
+    vi.mocked(attempts.findBookmarkedQuestionIds).mockResolvedValue([
+      'question-1',
+    ]);
+
+    const questions = await service.getQuestions(attemptId, studentId);
+    expect(questions[0]).toMatchObject({
+      selectedOption: 'B',
+      bookmarked: true,
+    });
+    expect(questions[0]).not.toHaveProperty('correctOption');
   });
 
   describe('start', () => {
@@ -106,6 +238,18 @@ describe('QuizAttemptService', () => {
       );
 
       expect(attempts.countByQuizAndStudent).not.toHaveBeenCalled();
+      expect(attempts.start).not.toHaveBeenCalled();
+    });
+
+    it('rejects a student whose enrollment is still pending', async () => {
+      vi.mocked(enrollments.findByStudentAndCourse).mockResolvedValue({
+        id: 'enrollment-pending',
+        status: 'pending',
+      } as never);
+
+      await expect(service.start(quizId, studentId)).rejects.toThrow(
+        'NOT_ENROLLED',
+      );
       expect(attempts.start).not.toHaveBeenCalled();
     });
   });
@@ -155,7 +299,7 @@ describe('QuizAttemptService', () => {
     expect(attempts.recordProctoringEvent).not.toHaveBeenCalled();
   });
 
-  it('rejects proctoring events for another student’s attempt', async () => {
+  it('rejects proctoring events for another studentï¿½s attempt', async () => {
     vi.mocked(attempts.findById).mockResolvedValue({
       ...attempt,
       studentId: 'another-student',

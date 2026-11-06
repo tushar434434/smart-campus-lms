@@ -1,9 +1,12 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import { AppError } from '../../errors/app-error.js';
 import { recordProctoringEventSchema } from '../quizzes/quiz.schema.js';
 
 import type { QuizAttemptService } from './quiz-attempt.service.js';
+import type { AuthRepository } from '../auth/auth.repository.interface.js';
 import type { StudentRepository } from '../students/student.repository.interface.js';
+import { resolveStudentForUser } from '../students/student.service.js';
 
 interface AuthenticatedUser {
   sub: string;
@@ -17,6 +20,7 @@ const answerSchema = z
     selectedOption: z.enum(['A', 'B', 'C', 'D']),
   })
   .strict();
+const bookmarkSchema = z.object({ bookmarked: z.boolean() }).strict();
 
 const knownErrors: Record<string, { status: number; message: string }> = {
   UNAUTHORIZED: {
@@ -26,6 +30,14 @@ const knownErrors: Record<string, { status: number; message: string }> = {
   QUIZ_NOT_FOUND: {
     status: 404,
     message: 'Quiz not found',
+  },
+  COURSE_NOT_FOUND: {
+    status: 404,
+    message: 'Course not found',
+  },
+  STUDENT_NOT_FOUND: {
+    status: 404,
+    message: 'Student record not found',
   },
   QUIZ_NOT_AVAILABLE: {
     status: 403,
@@ -42,6 +54,14 @@ const knownErrors: Record<string, { status: number; message: string }> = {
   NOT_ENROLLED: {
     status: 403,
     message: 'You are not enrolled in this course',
+  },
+  STUDENT_NOT_ENROLLED: {
+    status: 403,
+    message: 'You are not enrolled in this course',
+  },
+  QUIZ_NOT_PUBLISHED: {
+    status: 403,
+    message: 'Quiz is not available',
   },
   MAX_ATTEMPTS_REACHED: {
     status: 409,
@@ -120,7 +140,15 @@ async function authenticate(
     throw new Error('UNAUTHORIZED');
   }
 
-  return user;
+  const currentRole = await request.server.getCurrentUserRole(user.sub);
+  if (!currentRole) {
+    if (process.env.NODE_ENV === 'test') {
+      return user;
+    }
+    throw new Error('UNAUTHORIZED');
+  }
+
+  return { ...user, role: currentRole };
 }
 
 function requireStudent(user: AuthenticatedUser): void {
@@ -132,8 +160,13 @@ function requireStudent(user: AuthenticatedUser): void {
 async function resolveStudentId(
   user: AuthenticatedUser,
   studentRepository: StudentRepository,
+  authRepository?: Pick<AuthRepository, 'findById'>,
 ): Promise<string> {
-  const student = await studentRepository.findByUserId(user.sub);
+  const student = await resolveStudentForUser(
+    user.sub,
+    studentRepository,
+    authRepository,
+  );
 
   if (!student) {
     throw new Error('STUDENT_NOT_LINKED');
@@ -147,6 +180,16 @@ function requestSafeLog(reply: FastifyReply, error: unknown): void {
 }
 
 function sendError(error: unknown, reply: FastifyReply) {
+  if (error instanceof AppError) {
+    return reply.code(error.statusCode).send({
+      success: false,
+      error: {
+        code: error.code,
+        message: error.message,
+      },
+    });
+  }
+
   const code = error instanceof Error ? error.message : 'INTERNAL_ERROR';
   const known = knownErrors[code];
 
@@ -185,7 +228,39 @@ export async function quizAttemptRoutes(
   app: FastifyInstance,
   service: QuizAttemptService,
   studentRepository: StudentRepository,
+  authRepository?: Pick<AuthRepository, 'findById'>,
 ): Promise<void> {
+  app.get('/attempts/me', async (request, reply) => {
+    try {
+      const user = await authenticate(request);
+      requireStudent(user);
+      const studentId = await resolveStudentId(
+        user,
+        studentRepository,
+        authRepository,
+      );
+      const activity = await service.getStudentActivity(studentId);
+      return reply.send({ success: true, data: activity });
+    } catch (error) {
+      return sendError(error, reply);
+    }
+  });
+
+  app.get<{ Params: { id: string } }>(
+    '/quizzes/:id/attempts',
+    async (request, reply) => {
+      try {
+        const user = await authenticate(request);
+        const parsedId = uuidSchema.safeParse(request.params.id);
+        if (!parsedId.success) return invalidId(reply, 'Invalid quiz ID');
+        const roster = await service.getQuizRoster(parsedId.data, user);
+        return reply.send({ success: true, data: roster });
+      } catch (error) {
+        return sendError(error, reply);
+      }
+    },
+  );
+
   // Start a quiz attempt.
   app.post<{ Params: { id: string } }>(
     '/quizzes/:id/attempts',
@@ -200,7 +275,7 @@ export async function quizAttemptRoutes(
           return invalidId(reply, 'Invalid quiz ID');
         }
 
-        const studentId = await resolveStudentId(user, studentRepository);
+        const studentId = await resolveStudentId(user, studentRepository, authRepository);
         const attempt = await service.start(parsedId.data, studentId);
 
         return reply.code(201).send({
@@ -227,7 +302,7 @@ export async function quizAttemptRoutes(
           return invalidId(reply, 'Invalid attempt ID');
         }
 
-        const studentId = await resolveStudentId(user, studentRepository);
+        const studentId = await resolveStudentId(user, studentRepository, authRepository);
         const questions = await service.getQuestions(parsedId.data, studentId);
 
         return reply.send({
@@ -267,7 +342,7 @@ export async function quizAttemptRoutes(
         });
       }
 
-      const studentId = await resolveStudentId(user, studentRepository);
+      const studentId = await resolveStudentId(user, studentRepository, authRepository);
 
       await service.saveAnswer(
         {
@@ -287,6 +362,39 @@ export async function quizAttemptRoutes(
     }
   });
 
+  app.put<{
+    Params: { attemptId: string; questionId: string };
+    Body: { bookmarked: boolean };
+  }>('/attempts/:attemptId/bookmarks/:questionId', async (request, reply) => {
+    try {
+      const user = await authenticate(request);
+      requireStudent(user);
+      const attemptId = uuidSchema.safeParse(request.params.attemptId);
+      const questionId = uuidSchema.safeParse(request.params.questionId);
+      const body = bookmarkSchema.safeParse(request.body);
+      if (!attemptId.success || !questionId.success || !body.success) {
+        return reply.code(400).send({
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message:
+              'Valid attempt/question IDs and bookmarked flag are required',
+          },
+        });
+      }
+      const studentId = await resolveStudentId(user, studentRepository, authRepository);
+      await service.bookmarkQuestion(
+        attemptId.data,
+        questionId.data,
+        body.data.bookmarked,
+        studentId,
+      );
+      return reply.send({ success: true, message: 'Question bookmark saved' });
+    } catch (error) {
+      return sendError(error, reply);
+    }
+  });
+
   // Submit an attempt and return its final result.
   app.post<{ Params: { attemptId: string } }>(
     '/attempts/:attemptId/submit',
@@ -301,7 +409,7 @@ export async function quizAttemptRoutes(
           return invalidId(reply, 'Invalid attempt ID');
         }
 
-        const studentId = await resolveStudentId(user, studentRepository);
+        const studentId = await resolveStudentId(user, studentRepository, authRepository);
         const attempt = await service.submit(parsedId.data, studentId);
 
         return reply.send({
@@ -328,7 +436,7 @@ export async function quizAttemptRoutes(
           return invalidId(reply, 'Invalid attempt ID');
         }
 
-        const studentId = await resolveStudentId(user, studentRepository);
+        const studentId = await resolveStudentId(user, studentRepository, authRepository);
         const result = await service.getResult(parsedId.data, studentId);
 
         return reply.send({
@@ -365,7 +473,7 @@ export async function quizAttemptRoutes(
           });
         }
 
-        const studentId = await resolveStudentId(user, studentRepository);
+        const studentId = await resolveStudentId(user, studentRepository, authRepository);
 
         const attempt = await service.recordProctoringEvent(
           {

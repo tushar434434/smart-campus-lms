@@ -10,6 +10,9 @@ import { createAdminService } from './modules/admin/admin.service.js';
 
 import { InMemoryCourseRepository } from './modules/courses/course.repository.js';
 import { createCourseService } from './modules/courses/course.service.js';
+import { InMemoryCourseMaterialRepository } from './modules/courses/course-material.repository.js';
+import { createCourseMaterialService } from './modules/courses/course-material.service.js';
+import { InMemoryCourseMaterialFileStorage } from './modules/courses/course-material-file-storage.js';
 
 import { InMemoryEnrollmentRepository } from './modules/enrollments/enrollment.repository.js';
 import { createEnrollmentService } from './modules/enrollments/enrollment.service.js';
@@ -25,6 +28,7 @@ import { createStudentService } from './modules/students/student.service.js';
 
 import { InMemorySubmissionRepository } from './modules/submissions/submission.repository.js';
 import { createSubmissionService } from './modules/submissions/submission.service.js';
+import { createReportService } from './modules/reports/report.service.js';
 
 export function createTestContainer() {
   // Mock Prisma client for health-check tests.
@@ -36,6 +40,8 @@ export function createTestContainer() {
 
   // Repositories
   const courseRepository = new InMemoryCourseRepository();
+  const courseMaterialRepository = new InMemoryCourseMaterialRepository();
+  const courseMaterialFileStorage = new InMemoryCourseMaterialFileStorage();
   const studentRepository = new InMemoryStudentRepository();
   const enrollmentRepository = new InMemoryEnrollmentRepository();
   const assignmentRepository = new InMemoryAssignmentRepository();
@@ -49,7 +55,14 @@ export function createTestContainer() {
   );
 
   // Services
-  const courseService = createCourseService(courseRepository);
+  const courseService = createCourseService(courseRepository, authRepository);
+  const courseMaterialService = createCourseMaterialService(
+    courseMaterialRepository,
+    courseMaterialFileStorage,
+    courseRepository,
+    enrollmentRepository,
+    studentRepository,
+  );
 
   const studentService = createStudentService(
     studentRepository,
@@ -60,33 +73,56 @@ export function createTestContainer() {
     enrollmentRepository,
     studentRepository,
     courseRepository,
+    authRepository,
   );
 
   const assignmentService = createAssignmentService(
     assignmentRepository,
     courseRepository,
+    enrollmentRepository,
+    studentRepository,
   );
 
   const submissionService = createSubmissionService(
     submissionRepository,
     studentRepository,
     assignmentRepository,
+    enrollmentRepository,
+    courseRepository,
   );
 
-  const authService = createAuthService(authRepository);
-  const adminService = createAdminService(adminRepository);
+  const authService = createAuthService(authRepository, {
+    linkRegisteredStudent: (userId) =>
+      studentService.tryLinkMatchingAccount(userId),
+  });
+  const adminService = createAdminService(adminRepository, authRepository);
   const passwordResetService = createPasswordResetService(
     passwordResetRepository,
     { sendPasswordResetOtp: async () => undefined },
     { secret: 'test-reset-secret', ttlMinutes: 10 },
   );
 
-  const quizService = new QuizService(quizRepository, courseRepository);
+  const quizService = new QuizService(
+    quizRepository,
+    courseRepository,
+    enrollmentRepository,
+    studentRepository,
+    authRepository,
+  );
 
   const quizAttemptService = new QuizAttemptService(
     quizAttemptRepository,
     quizRepository,
     enrollmentRepository,
+    courseRepository,
+    studentRepository,
+  );
+  const reportService = createReportService(
+    assignmentRepository,
+    quizService,
+    quizAttemptService,
+    submissionService,
+    courseRepository,
   );
 
   return {
@@ -94,6 +130,8 @@ export function createTestContainer() {
 
     courseRepository,
     courseService,
+    courseMaterialRepository,
+    courseMaterialService,
 
     studentRepository,
     studentService,
@@ -119,5 +157,6 @@ export function createTestContainer() {
 
     quizAttemptRepository,
     quizAttemptService,
+    reportService,
   };
 }
