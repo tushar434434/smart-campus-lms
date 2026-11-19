@@ -225,7 +225,7 @@ _Results reflect the latest recorded run and may change as the codebase evolves.
 
 The following screenshot records the successful test run.
 
-![Smart Campus LMS backend test results](C:\Users\tusha\smart-campus-lms\backend\Screenshot 2026-10-26 112047.png)
+![Smart Campus LMS backend test results](C:\Users\tusha\smart-campus-lms\backend\image.png)
 
 ## API Responses
 
