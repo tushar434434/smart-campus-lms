@@ -221,12 +221,6 @@ The PostgreSQL integration tests cover database-backed quiz-attempt workflows, i
 
 _Results reflect the latest recorded run and may change as the codebase evolves. PostgreSQL integration tests require a correctly configured test database and environment variables._
 
-### Test Run Screenshot
-
-The following screenshot records the successful test run.
-
-![Smart Campus LMS backend test results](backend\image.png)
-
 ## API Responses
 
 The API uses structured JSON responses for successful operations and errors. Validation failures, authorization errors, missing resources, and invalid workflow operations should return appropriate HTTP status codes and error codes.
