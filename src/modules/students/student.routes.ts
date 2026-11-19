@@ -7,6 +7,7 @@ import { successResponse } from '../../utils/response.js';
 
 import {
   createStudentSchema,
+  listLinkableUsersSchema,
   linkStudentUserSchema,
   listStudentsSchema,
   updateStudentSchema,
@@ -51,6 +52,40 @@ export async function studentRoutes(
       return reply
         .status(201)
         .send(successResponse('Student created successfully', student));
+    },
+  );
+
+  app.get<{ Params: { id: string } }>(
+    '/students/:id/linkable-users',
+    {
+      preHandler: [authenticate, authorize('faculty', 'admin')],
+      schema: {
+        tags: ['Students'],
+        summary: 'List eligible student accounts',
+        description:
+          'Returns paginated student accounts that can be linked to this student record.',
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (request) => {
+      const result = listLinkableUsersSchema.safeParse(request.query);
+
+      if (!result.success) {
+        throw new AppError(
+          result.error.issues
+            .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+            .join(', '),
+          400,
+          'VALIDATION_ERROR',
+        );
+      }
+
+      const data = await service.listLinkableUsers(
+        request.params.id,
+        result.data,
+      );
+
+      return successResponse('Eligible student accounts retrieved', data);
     },
   );
 

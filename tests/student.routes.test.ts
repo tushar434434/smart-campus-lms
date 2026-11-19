@@ -15,9 +15,10 @@ type StudentInput = {
 
 describe('Student API', () => {
   let app: ReturnType<typeof buildApp>;
+  let container: ReturnType<typeof createTestContainer>;
 
   beforeEach(async () => {
-    const container = createTestContainer();
+    container = createTestContainer();
 
     app = buildApp(container);
     await app.ready();
@@ -35,6 +36,15 @@ describe('Student API', () => {
     role: 'student' | 'faculty' = 'student',
     email = `${role}.${crypto.randomUUID()}@example.com`,
   ) {
+    if (role === 'faculty') {
+      return container.authRepository.create({
+        name: `${role} Test User`,
+        email,
+        passwordHash: 'test-password-hash',
+        role,
+      });
+    }
+
     const response = await app.inject({
       method: 'POST',
       url: '/auth/register',
@@ -57,8 +67,22 @@ describe('Student API', () => {
   async function tokenFor(role: Role, userId?: string): Promise<string> {
     const user =
       userId === undefined
-        ? await createUser(role === 'admin' ? 'faculty' : role)
+        ? await container.authRepository.create({
+            name: `${role} Test User`,
+            email: `${role}.${crypto.randomUUID()}@example.com`,
+            passwordHash: 'test-password-hash',
+            role,
+          })
         : { id: userId };
+    if (userId === undefined && role === 'admin') {
+      container.adminRepository.addAccount({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        createdAt: user.createdAt,
+      });
+    }
 
     return app.jwt.sign({
       sub: user.id,
@@ -111,6 +135,18 @@ describe('Student API', () => {
       url: `/students/${studentId}/link-user`,
       headers: token ? { authorization: `Bearer ${token}` } : {},
       payload: { userId },
+    });
+  }
+
+  async function listLinkableUsers(
+    studentId: string,
+    query = '',
+    token?: string,
+  ) {
+    return app.inject({
+      method: 'GET',
+      url: `/students/${studentId}/linkable-users${query}`,
+      headers: token ? { authorization: 'Bearer ' + token } : {},
     });
   }
 
@@ -513,6 +549,71 @@ describe('Student API', () => {
   // --------------------------------------------------
   // Student account linking
   // --------------------------------------------------
+
+  it('lists only student accounts that are not linked elsewhere', async () => {
+    const target = await createStudent();
+    const linkedStudent = await createStudent();
+    const eligible = await createUser('student');
+    const alreadyLinked = await createUser('student');
+    const faculty = await createUser('faculty');
+    const token = await tokenFor('faculty');
+
+    expect(
+      (await linkStudent(linkedStudent.id, alreadyLinked.id, token)).statusCode,
+    ).toBe(200);
+
+    const response = await listLinkableUsers(target.id, '', token);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data.accounts).toEqual([
+      expect.objectContaining({
+        id: eligible.id,
+        name: eligible.name,
+        email: eligible.email,
+      }),
+    ]);
+    expect(response.json().data.accounts[0]).not.toHaveProperty('passwordHash');
+    expect(response.json().data.pagination).toMatchObject({
+      page: 1,
+      limit: 10,
+      total: 1,
+      totalPages: 1,
+    });
+    expect(
+      response
+        .json()
+        .data.accounts.map((account: { id: string }) => account.id),
+    ).not.toContain(faculty.id);
+  });
+
+  it('includes the account already linked to the current student record', async () => {
+    const student = await createStudent();
+    const user = await createUser('student');
+    const token = await tokenFor('faculty');
+
+    expect((await linkStudent(student.id, user.id, token)).statusCode).toBe(
+      200,
+    );
+
+    const response = await listLinkableUsers(student.id, '', token);
+
+    expect(response.statusCode).toBe(200);
+    expect(
+      response
+        .json()
+        .data.accounts.map((account: { id: string }) => account.id),
+    ).toContain(user.id);
+  });
+
+  it('requires faculty or administrator authorization to list accounts', async () => {
+    const student = await createStudent();
+    const unauthenticated = await listLinkableUsers(student.id);
+    const studentToken = await tokenFor('student');
+    const forbidden = await listLinkableUsers(student.id, '', studentToken);
+
+    expect(unauthenticated.statusCode).toBe(401);
+    expect(forbidden.statusCode).toBe(403);
+  });
 
   it('links a student record to a student account', async () => {
     const student = await createStudent();

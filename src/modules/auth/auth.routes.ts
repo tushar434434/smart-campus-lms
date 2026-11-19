@@ -46,11 +46,6 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (
               type: 'string',
               minLength: 8,
             },
-            role: {
-              type: 'string',
-              enum: ['student', 'faculty'],
-              default: 'student',
-            },
           },
         },
 

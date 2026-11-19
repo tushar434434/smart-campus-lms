@@ -50,6 +50,44 @@ export class PrismaAuthRepository implements AuthRepository {
     return users.map((user) => this.toUser(user));
   }
 
+  async findStudentAccounts(input: {
+    page: number;
+    limit: number;
+    search?: string;
+    excludedUserIds: string[];
+  }) {
+    const where = {
+      role: 'student' as const,
+      ...(input.excludedUserIds.length > 0
+        ? { id: { notIn: input.excludedUserIds } }
+        : {}),
+      ...(input.search
+        ? {
+            OR: [
+              {
+                name: { contains: input.search, mode: 'insensitive' as const },
+              },
+              {
+                email: { contains: input.search, mode: 'insensitive' as const },
+              },
+            ],
+          }
+        : {}),
+    };
+    const [accounts, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        select: { id: true, name: true, email: true },
+        skip: (input.page - 1) * input.limit,
+        take: input.limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return { accounts, total };
+  }
+
   private toUser(user: {
     id: string;
     name: string;

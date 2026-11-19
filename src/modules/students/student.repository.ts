@@ -44,6 +44,12 @@ export class InMemoryStudentRepository implements StudentRepository {
     return this.students.find((student) => student.userId === userId);
   }
 
+  async findLinkedUserIds(): Promise<string[]> {
+    return this.students.flatMap((student) =>
+      student.userId ? [student.userId] : [],
+    );
+  }
+
   async linkUser(
     studentId: string,
     userId: string,
