@@ -1,4 +1,4 @@
-import { apiRequest } from './client';
+import { apiDownload, apiRequest } from './client';
 import type { Assignment } from '../types/api';
 
 export interface AssignmentInput {
@@ -27,4 +27,15 @@ export const assignmentsApi = {
     apiRequest<Assignment>(`/assignments/${id}`, { method: 'PATCH', token, body: input }),
   delete: (id: string, token: string) =>
     apiRequest<void>(`/assignments/${id}`, { method: 'DELETE', token }),
+  uploadFile: (id: string, file: File, token: string) => {
+    const body = new FormData();
+    body.append('file', file);
+    return apiRequest<Assignment>(`/assignments/${id}/file`, {
+      method: 'PUT',
+      token,
+      body,
+    });
+  },
+  file: (id: string, token: string, download: boolean) =>
+    apiDownload(`/assignments/${id}/file${download ? '?download=true' : ''}`, token),
 };

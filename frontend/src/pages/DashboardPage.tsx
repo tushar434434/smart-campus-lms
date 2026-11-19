@@ -50,94 +50,95 @@ export function DashboardPage() {
     async function load() {
       setLoading(true);
       setError('');
+      const sectionErrors: string[] = [];
       try {
-        const [coursePage, students] = await Promise.all([
-          coursesApi.list(1, '', accessToken),
-          user?.role === 'student'
-            ? Promise.resolve(null)
-            : studentsApi.list(1, '', accessToken),
-        ]);
-        if (!active) return;
-        setCourses(coursePage.courses.slice(0, 4));
-        setCourseCount(coursePage.pagination.total);
-        setStudentCount(students?.pagination.total ?? null);
-        if (user?.role === 'student') {
-          const [quizSettled, submissionsSettled, attemptsSettled] =
-            await Promise.allSettled([
-              quizzesApi.listMine(accessToken),
-              submissionsApi.myActivity(accessToken),
-              quizzesApi.studentActivity(accessToken),
-            ]);
+        try {
+          const [coursePage, students] = await Promise.all([
+            coursesApi.list(1, '', accessToken),
+            user?.role === 'student'
+              ? Promise.resolve(null)
+              : studentsApi.list(1, '', accessToken),
+          ]);
           if (!active) return;
+          setCourses(coursePage.courses.slice(0, 4));
+          setCourseCount(coursePage.pagination.total);
+          setStudentCount(students?.pagination.total ?? null);
+        } catch (caught) {
+          if (!active) return;
+          setCourses([]);
+          setCourseCount(0);
+          setStudentCount(null);
+          sectionErrors.push(
+            caught instanceof ApiError ? caught.message : 'Unable to load workspace data.',
+          );
+        }
 
-          const errors: string[] = [];
-          let isMissingProfile = false;
-
-          if (quizSettled.status === 'fulfilled') {
-            setAvailableQuizzes(quizSettled.value);
-          } else {
-            setAvailableQuizzes([]);
-            if (isStudentProfileMissingError(quizSettled.reason)) {
-              isMissingProfile = true;
-            } else {
-              errors.push(
-                quizSettled.reason instanceof ApiError
-                  ? quizSettled.reason.message
-                  : 'Unable to load quizzes.',
-              );
-            }
-          }
-
-          if (submissionsSettled.status === 'fulfilled') {
-            setAssignmentActivity(submissionsSettled.value);
-          } else {
-            setAssignmentActivity([]);
-            if (isStudentProfileMissingError(submissionsSettled.reason)) {
-              isMissingProfile = true;
-            } else {
-              errors.push(
-                submissionsSettled.reason instanceof ApiError
-                  ? submissionsSettled.reason.message
-                  : 'Unable to load your assignment activity.',
-              );
-            }
-          }
-
-          if (attemptsSettled.status === 'fulfilled') {
-            setQuizActivity(attemptsSettled.value);
-          } else {
-            setQuizActivity([]);
-            if (isStudentProfileMissingError(attemptsSettled.reason)) {
-              isMissingProfile = true;
-            } else {
-              errors.push(
-                attemptsSettled.reason instanceof ApiError
-                  ? attemptsSettled.reason.message
-                  : 'Unable to load your quiz attempt activity.',
-              );
-            }
-          }
-
-          // If quizzes loaded successfully, the student profile is confirmed linked
-          if (quizSettled.status === 'fulfilled') {
-            isMissingProfile = false;
-          }
-
-          setStudentProfileMissing(isMissingProfile);
-
-          if (!isMissingProfile && errors.length > 0) {
-            const uniqueErrors = Array.from(new Set(errors));
-            setError(uniqueErrors.join(' '));
-          }
-        } else {
+        if (user?.role !== 'student') {
           setAssignmentActivity([]);
           setQuizActivity([]);
           setAvailableQuizzes([]);
           setStudentProfileMissing(false);
+          if (sectionErrors.length > 0) {
+            setError(Array.from(new Set(sectionErrors)).join(' '));
+          }
+          return;
         }
-      } catch (caught) {
+
+        const [quizSettled, submissionsSettled, attemptsSettled] =
+          await Promise.allSettled([
+            quizzesApi.listMine(accessToken),
+            submissionsApi.myActivity(accessToken),
+            quizzesApi.studentActivity(accessToken),
+          ]);
         if (!active) return;
-        setError(caught instanceof ApiError ? caught.message : 'Unable to load workspace data.');
+
+        if (quizSettled.status === 'fulfilled') {
+          setAvailableQuizzes(quizSettled.value);
+        } else {
+          setAvailableQuizzes([]);
+          if (!isStudentProfileMissingError(quizSettled.reason)) {
+            sectionErrors.push(
+              quizSettled.reason instanceof ApiError
+                ? quizSettled.reason.message
+                : 'Unable to load quizzes.',
+            );
+          }
+        }
+
+        if (submissionsSettled.status === 'fulfilled') {
+          setAssignmentActivity(submissionsSettled.value);
+        } else {
+          setAssignmentActivity([]);
+          if (!isStudentProfileMissingError(submissionsSettled.reason)) {
+            sectionErrors.push(
+              submissionsSettled.reason instanceof ApiError
+                ? submissionsSettled.reason.message
+                : 'Unable to load your assignment activity.',
+            );
+          }
+        }
+
+        if (attemptsSettled.status === 'fulfilled') {
+          setQuizActivity(attemptsSettled.value);
+        } else {
+          setQuizActivity([]);
+          if (!isStudentProfileMissingError(attemptsSettled.reason)) {
+            sectionErrors.push(
+              attemptsSettled.reason instanceof ApiError
+                ? attemptsSettled.reason.message
+                : 'Unable to load your quiz attempt activity.',
+            );
+          }
+        }
+
+        const isMissingProfile =
+          quizSettled.status === 'rejected' &&
+          isStudentProfileMissingError(quizSettled.reason);
+        setStudentProfileMissing(isMissingProfile);
+
+        if (!isMissingProfile && sectionErrors.length > 0) {
+          setError(Array.from(new Set(sectionErrors)).join(' '));
+        }
       } finally {
         if (active) setLoading(false);
       }
@@ -223,7 +224,7 @@ export function DashboardPage() {
                   </div>
                   <div className="activity-result">
                     <span className="status-pill status-green">{quiz.status}</span>
-                    <Link className="text-link" to="/quizzes">Take quiz</Link>
+                    <Link className="text-link" to={`/quizzes?quizId=${quiz.id}`}>Take quiz</Link>
                   </div>
                 </article>
               ))}

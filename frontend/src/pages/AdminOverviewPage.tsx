@@ -11,12 +11,15 @@ import {
 import { Link } from 'react-router-dom';
 import { ApiError } from '../api/client';
 import { adminApi, type AdminDashboardStats } from '../api/admin.api';
+import { coursesApi, listAllCourses } from '../api/courses.api';
 import {
   EmptyState,
   ErrorNotice,
   LoadingState,
 } from '../components/ui/Feedback';
 import { useAuth } from '../contexts/AuthContext';
+import type { Course } from '../types/api';
+import { EnrollmentRequestsPanel } from '../components/EnrollmentRequestsPanel';
 
 export function AdminOverviewPage() {
   const { token } = useAuth();
@@ -112,6 +115,9 @@ export function AdminOverviewPage() {
             />
           </section>
 
+          <CourseOwnershipPanel />
+          <EnrollmentRequestsPanel />
+
           <section className="content-card">
             <div className="section-heading">
               <div>
@@ -204,6 +210,108 @@ export function AdminOverviewPage() {
         </>
       )}
     </div>
+  );
+}
+
+function CourseOwnershipPanel() {
+  const { token } = useAuth();
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [faculty, setFaculty] = useState<Array<{ id: string; name: string; email: string }>>([]);
+  const [selectedFaculty, setSelectedFaculty] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [busyCourseId, setBusyCourseId] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const load = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    setError('');
+    try {
+      const [allCourses, firstFacultyPage] = await Promise.all([
+        listAllCourses(token),
+        adminApi.listUsers(token, { page: 1, limit: 100, role: 'faculty' }),
+      ]);
+      const facultyUsers = [...firstFacultyPage.users];
+      for (let page = 2; page <= firstFacultyPage.pagination.totalPages; page += 1) {
+        const nextPage = await adminApi.listUsers(token, {
+          page,
+          limit: 100,
+          role: 'faculty',
+        });
+        facultyUsers.push(...nextPage.users);
+      }
+      setCourses(allCourses);
+      setFaculty(facultyUsers.map(({ id, name, email }) => ({ id, name, email })));
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : 'Unable to load course ownership data.');
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  async function assign(course: Course) {
+    const facultyId = selectedFaculty[course.id];
+    if (!token || !facultyId) return;
+    setBusyCourseId(course.id);
+    setError('');
+    setSuccess('');
+    try {
+      await coursesApi.assignFaculty(course.id, facultyId, token);
+      setCourses((items) => items.map((item) =>
+        item.id === course.id ? { ...item, ownerFacultyId: facultyId } : item,
+      ));
+      setSuccess(`${course.code} is now assigned to the selected faculty member.`);
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : 'Unable to assign this course.');
+    } finally {
+      setBusyCourseId('');
+    }
+  }
+
+  const unassignedCourses = courses.filter((course) => course.ownerFacultyId === null);
+
+  return (
+    <section className="content-card">
+      <div className="section-heading">
+        <div><h2>Unassigned courses</h2><p>Assign legacy courses to a faculty owner. Unassigned courses remain Admin-managed.</p></div>
+        <button className="button button-outline button-small" onClick={() => void load()} disabled={loading}>Refresh</button>
+      </div>
+      {error && <ErrorNotice message={error} />}
+      {success && <div className="notice notice-success" role="status">{success}</div>}
+      {loading ? <LoadingState label="Loading course ownership" /> : unassignedCourses.length ? (
+        <div className="data-list">
+          {unassignedCourses.map((course) => (
+            <div className="data-row" key={course.id}>
+              <div className="row-main"><strong>{course.title}</strong><span>{course.code}</span></div>
+              <select
+                className="form-input"
+                aria-label={`Faculty owner for ${course.title}`}
+                value={selectedFaculty[course.id] ?? ''}
+                onChange={(event) => setSelectedFaculty((current) => ({
+                  ...current,
+                  [course.id]: event.target.value,
+                }))}
+              >
+                <option value="">Select faculty</option>
+                {faculty.map((member) => (
+                  <option key={member.id} value={member.id}>{member.name} · {member.email}</option>
+                ))}
+              </select>
+              <button
+                className="button button-outline button-small"
+                disabled={!selectedFaculty[course.id] || busyCourseId === course.id}
+                onClick={() => void assign(course)}
+              >
+                {busyCourseId === course.id ? 'Assigning…' : 'Assign'}
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : <EmptyState title="All courses have an owner" description="New faculty-created courses are assigned automatically." />}
+    </section>
   );
 }
 

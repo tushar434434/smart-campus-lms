@@ -7,9 +7,16 @@ import { AdminOverviewPage } from './AdminOverviewPage';
 
 const mocks = vi.hoisted(() => ({
   getDashboardStats: vi.fn(),
+  listUsers: vi.fn(),
+  listAllCourses: vi.fn(),
+  assignFaculty: vi.fn(),
 }));
 
 vi.mock('../api/admin.api', () => ({ adminApi: mocks }));
+vi.mock('../api/courses.api', () => ({
+  listAllCourses: mocks.listAllCourses,
+  coursesApi: { assignFaculty: mocks.assignFaculty },
+}));
 vi.mock('../contexts/AuthContext', () => ({
   useAuth: () => ({ token: 'admin-token' }),
 }));
@@ -27,6 +34,11 @@ beforeEach(() => {
     recentUsers: [],
     recentRoleChanges: [],
   });
+  vi.mocked(adminApi.listUsers).mockResolvedValue({
+    users: [],
+    pagination: { page: 1, limit: 100, total: 0, totalPages: 0 },
+  });
+  mocks.listAllCourses.mockResolvedValue([]);
 });
 
 afterEach(cleanup);

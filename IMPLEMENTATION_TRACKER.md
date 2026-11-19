@@ -14,7 +14,7 @@ Priority order: bugs → authz → APIs/DB → frontend → quiz integrity → c
 | T8 | Accessibility WCAG audit | Remaining | Layout exists; no formal audit |
 | T9 | Load tests / SLOs | Remaining | No performance baseline |
 | T10 | Browser E2E | Remaining | Vitest only |
-| T11 | API.md course materials / enrollments | Remaining | Docs lag routes |
+| T11 | API.md course materials / enrollments | Done | Documented course materials, enrollment requests, approval workflows, suspension, and quiz endpoints in docs/API.md |
 | T12 | Password-reset skip for suspended | Done | Suspended accounts get the generic reset response and no OTP |
 | T13 | Quiz attempt student access | Done | Email-match auto-link for unlinked student profiles; approved enrollment still required; Prisma enrollment/publish errors mapped |
 | T14 | Quiz start 403 + question image 500 | Done | Persist quiz images on disk; missing files return 404; enrolled students can start and load images |

@@ -29,6 +29,9 @@ vi.mock('../api/quizzes.api', () => ({
     listMine: mocks.listMine,
   },
 }));
+vi.mock('../api/enrollments.api', () => ({
+  enrollmentsApi: { requests: vi.fn().mockResolvedValue([]) },
+}));
 vi.mock('../contexts/AuthContext', () => ({
   useAuth: () => mocks.useAuth(),
 }));
@@ -281,6 +284,46 @@ describe('student dashboard quiz visibility', () => {
     expect(screen.getByText('You do not have permission to view submissions')).toBeTruthy();
   });
 
+  it('displays published quizzes when the course catalog request fails', async () => {
+    mocks.listCourses.mockRejectedValue(
+      new ApiError('Unable to load courses', 500, 'INTERNAL_ERROR'),
+    );
+    mocks.listMine.mockResolvedValue([publishedQuiz]);
+
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Midterm quiz')).toBeTruthy();
+    expect(screen.getByText('Published for you')).toBeTruthy();
+    expect(screen.getByText('Unable to load courses')).toBeTruthy();
+  });
+
+  it('does not load student quiz lists for administrators', async () => {
+    mocks.useAuth.mockReturnValue({
+      token: 'admin-token',
+      user: { id: 'user-admin', name: 'Admin User', role: 'admin' },
+    });
+    mocks.listStudents.mockResolvedValue({
+      students: [],
+      pagination: { page: 1, limit: 10, total: 4, totalPages: 1 },
+    });
+
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Recently added courses')).toBeTruthy();
+    expect(await screen.findByText('Student records')).toBeTruthy();
+    expect(mocks.listMine).not.toHaveBeenCalled();
+    expect(mocks.studentActivity).not.toHaveBeenCalled();
+    expect(screen.queryByText('Published for you')).toBeNull();
+  });
+
   it('allows the student to open an eligible quiz from the dashboard', async () => {
     mocks.listMine.mockResolvedValue([publishedQuiz]);
 
@@ -292,7 +335,7 @@ describe('student dashboard quiz visibility', () => {
 
     expect(await screen.findByText('Midterm quiz')).toBeTruthy();
     const takeQuizLink = screen.getByRole('link', { name: 'Take quiz' });
-    expect(takeQuizLink.getAttribute('href')).toBe('/quizzes');
+    expect(takeQuizLink.getAttribute('href')).toBe('/quizzes?quizId=quiz-published');
     const openQuizzesLink = screen.getByRole('link', { name: /Open quizzes/i });
     expect(openQuizzesLink.getAttribute('href')).toBe('/quizzes');
   });

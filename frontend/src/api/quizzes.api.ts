@@ -1,5 +1,11 @@
-import { apiRequest } from './client';
-import type { Quiz, QuizAttempt, QuizQuestion } from '../types/api';
+import { apiDownload, apiRequest } from './client';
+import type {
+  Quiz,
+  QuizAttempt,
+  QuizQuestion,
+  QuizRosterRow,
+  StudentQuizActivity,
+} from '../types/api';
 
 export interface QuizInput {
   courseId: string;
@@ -13,6 +19,7 @@ export interface QuizInput {
 }
 
 export interface QuestionInput {
+  questionType: 'multiple_choice' | 'true_false';
   questionText: string;
   optionA: string;
   optionB: string;
@@ -35,6 +42,7 @@ export interface QuizUpdate {
 export const quizzesApi = {
   listByCourse: (courseId: string, token: string) =>
     apiRequest<Quiz[]>(`/courses/${courseId}/quizzes`, { token }),
+  listMine: (token: string) => apiRequest<Quiz[]>('/quizzes/me', { token }),
   get: (id: string, token: string) => apiRequest<Quiz>(`/quizzes/${id}`, { token }),
   questions: (id: string, token: string) =>
     apiRequest<QuizQuestion[]>(`/quizzes/${id}/questions`, { token }),
@@ -48,6 +56,26 @@ export const quizzesApi = {
     apiRequest<QuizQuestion>(`/quizzes/${id}/questions/${questionId}`, { method: 'PATCH', token, body: input }),
   deleteQuestion: (id: string, questionId: string, token: string) =>
     apiRequest<{ message: string }>(`/quizzes/${id}/questions/${questionId}`, { method: 'DELETE', token }),
+  uploadQuestionImage: (
+    id: string,
+    questionId: string,
+    slot: 'question' | 'optionA' | 'optionB' | 'optionC' | 'optionD',
+    file: File,
+    token: string,
+  ) => {
+    const body = new FormData();
+    body.append('file', file);
+    return apiRequest<{ slot: string; mimeType: string; size: number; originalFileName: string }>(
+      `/quizzes/${id}/questions/${questionId}/images/${slot}`,
+      { method: 'PUT', token, body },
+    );
+  },
+  questionImage: (
+    id: string,
+    questionId: string,
+    slot: 'question' | 'optionA' | 'optionB' | 'optionC' | 'optionD',
+    token: string,
+  ) => apiDownload(`/quizzes/${id}/questions/${questionId}/images/${slot}`, token),
   publish: (id: string, token: string) =>
     apiRequest<Quiz>(`/quizzes/${id}/publish`, { method: 'POST', token }),
   release: (id: string, showMarks: boolean, showCorrectAnswers: boolean, token: string) =>
@@ -68,6 +96,16 @@ export const quizzesApi = {
       token,
       body: { selectedOption },
     }),
+  bookmark: (attemptId: string, questionId: string, bookmarked: boolean, token: string) =>
+    apiRequest<void>(`/attempts/${attemptId}/bookmarks/${questionId}`, {
+      method: 'PUT',
+      token,
+      body: { bookmarked },
+    }),
   submitAttempt: (attemptId: string, token: string) =>
     apiRequest<QuizAttempt>(`/attempts/${attemptId}/submit`, { method: 'POST', token }),
+  studentActivity: (token: string) =>
+    apiRequest<StudentQuizActivity[]>('/attempts/me', { token }),
+  roster: (quizId: string, token: string) =>
+    apiRequest<QuizRosterRow[]>(`/quizzes/${quizId}/attempts`, { token }),
 };
