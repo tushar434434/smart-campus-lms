@@ -5,6 +5,8 @@ dist/
 !.env.example
 *.log
 /src/generated/prisma/
+backend/var/private-uploads/
+var/private-uploads/
 # Generated Prisma AI skills
 .agents/
 .claude/
@@ -12,3 +14,6 @@ dist/
 .devin/
 .windsurf/
 skills-lock.json
+.git-root-backup/
+backend/dist/
+frontend/dist/

@@ -1,0 +1,371 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  student
+  faculty
+  admin
+}
+
+enum SubmissionStatus {
+  submitted
+  graded
+}
+
+enum QuizStatus {
+  draft
+  published
+  closed
+}
+
+enum QuizAttemptStatus {
+  in_progress
+  submitted
+  auto_submitted
+  flagged
+}
+
+enum ProctoringEventType {
+  tab_switch
+  fullscreen_exit
+  fullscreen_enter
+  visibility_hidden
+  visibility_visible
+  quiz_started
+  quiz_submitted
+  time_expired
+}
+
+enum CourseApprovalStatus {
+  pending
+  approved
+  rejected
+}
+
+enum EnrollmentStatus {
+  pending
+  approved
+  rejected
+}
+
+enum CourseMaterialType {
+  notes
+  pyq
+  syllabus
+  lecture_slides
+  reference
+}
+
+enum QuizQuestionImageSlot {
+  question
+  optionA
+  optionB
+  optionC
+  optionD
+}
+
+enum QuizQuestionType {
+  multiple_choice
+  true_false
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         UserRole
+  suspendedAt  DateTime?
+  createdAt    DateTime  @default(now())
+
+  student             Student?
+  actedRoleChanges    RoleAuditLog[]       @relation("RoleChangeActor")
+  receivedRoleChanges RoleAuditLog[]       @relation("RoleChangeTarget")
+  passwordResets      PasswordResetToken[]
+  ownedCourses        Course[]             @relation("CourseFacultyOwner")
+  reviewedCourses     Course[]             @relation("CourseApprovalReviewer")
+  reviewedEnrollments Enrollment[]        @relation("EnrollmentReviewer")
+  uploadedMaterials   CourseMaterial[]     @relation("CourseMaterialUploader")
+}
+
+model RoleAuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  actorId      String   @db.Uuid
+  targetId     String   @db.Uuid
+  previousRole UserRole
+  newRole      UserRole
+  createdAt    DateTime @default(now())
+
+  actor  User @relation("RoleChangeActor", fields: [actorId], references: [id], onDelete: Restrict)
+  target User @relation("RoleChangeTarget", fields: [targetId], references: [id], onDelete: Restrict)
+
+  @@index([createdAt])
+  @@index([targetId, createdAt])
+}
+
+model PasswordResetToken {
+  id                  String    @id @default(uuid()) @db.Uuid
+  userId              String    @db.Uuid
+  otpHash             String
+  otpExpiresAt        DateTime
+  failedAttempts      Int       @default(0)
+  resetTokenHash      String?
+  resetTokenExpiresAt DateTime?
+  consumedAt          DateTime?
+  createdAt           DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([resetTokenHash])
+  @@index([otpExpiresAt])
+}
+
+model Student {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String?  @unique @db.Uuid
+  name             String
+  email            String   @unique
+  enrollmentNumber String   @unique
+  department       String
+  semester         Int
+  createdAt        DateTime @default(now())
+
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  enrollments  Enrollment[]
+  submissions  Submission[]
+  quizAttempts QuizAttempt[]
+}
+
+model StudentEnrollmentSequence {
+  year  Int @id
+  value Int
+}
+
+model Course {
+  id              String               @id @default(uuid()) @db.Uuid
+  ownerFacultyId  String?              @db.Uuid
+  approvalStatus  CourseApprovalStatus @default(pending)
+  rejectionReason String?
+  reviewedAt      DateTime?
+  reviewedById    String?              @db.Uuid
+  title           String
+  code            String               @unique
+  credits         Int
+  createdAt       DateTime             @default(now())
+
+  owner        User?        @relation("CourseFacultyOwner", fields: [ownerFacultyId], references: [id], onDelete: SetNull)
+  reviewedBy  User?        @relation("CourseApprovalReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  enrollments Enrollment[]
+  assignments Assignment[]
+  quizzes     Quiz[]
+  materials   CourseMaterial[]
+
+  @@index([ownerFacultyId])
+  @@index([approvalStatus, createdAt])
+}
+
+model Enrollment {
+  id              String           @id @default(uuid()) @db.Uuid
+  studentId       String           @db.Uuid
+  courseId        String           @db.Uuid
+  status          EnrollmentStatus @default(approved)
+  rejectionReason String?
+  requestedAt     DateTime         @default(now())
+  enrolledAt      DateTime         @default(now())
+  reviewedAt      DateTime?
+  reviewedById    String?          @db.Uuid
+
+  student    Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course     Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  reviewedBy User?   @relation("EnrollmentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@unique([studentId, courseId])
+  @@index([courseId, status, requestedAt])
+}
+
+model CourseMaterial {
+  id               String            @id @default(uuid()) @db.Uuid
+  courseId         String            @db.Uuid
+  uploadedById     String            @db.Uuid
+  title            String
+  description      String?
+  unitNumber       Int?
+  type             CourseMaterialType
+  originalFileName String
+  fileKey          String            @unique
+  fileMimeType     String
+  fileSize         Int
+  createdAt        DateTime          @default(now())
+
+  course     Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  uploadedBy User   @relation("CourseMaterialUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([courseId, type, unitNumber, createdAt])
+}
+
+model Assignment {
+  id               String   @id @default(uuid()) @db.Uuid
+  courseId         String   @db.Uuid
+  title            String
+  description      String
+  dueAt            DateTime
+  maxMarks         Float
+  fileKey          String?  @unique
+  fileMimeType     String?
+  fileSize         Int?
+  originalFileName String?
+  createdAt        DateTime @default(now())
+
+  course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  submissions Submission[]
+}
+
+model Submission {
+  id           String           @id @default(uuid()) @db.Uuid
+  studentId    String           @db.Uuid
+  assignmentId String           @db.Uuid
+  content      String
+  fileKey      String?
+  fileMimeType String?
+  fileSize     Int?
+  status       SubmissionStatus @default(submitted)
+  marks        Float?
+  feedback     String?
+  submittedAt  DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  student    Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, assignmentId])
+}
+
+model Quiz {
+  id              String     @id @default(uuid()) @db.Uuid
+  courseId        String     @db.Uuid
+  title           String
+  description     String
+  durationMinutes Int
+  maxMarks        Float
+  maxAttempts     Int        @default(1)
+  status          QuizStatus @default(draft)
+  startsAt        DateTime?
+  endsAt          DateTime?
+
+  // Result visibility is controlled by the teacher.
+  resultsReleasedAt  DateTime?
+  showMarks          Boolean   @default(false)
+  showCorrectAnswers Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  course    Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  questions QuizQuestion[]
+  attempts  QuizAttempt[]
+
+  @@index([courseId])
+}
+
+model QuizQuestion {
+  id            String @id @default(uuid()) @db.Uuid
+  quizId        String @db.Uuid
+  questionType  QuizQuestionType @default(multiple_choice)
+  questionText  String
+  optionA       String
+  optionB       String
+  optionC       String
+  optionD       String
+  correctOption String
+  marks         Float  @default(1)
+
+  quiz    Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  answers QuizAnswer[]
+  bookmarks QuizBookmark[]
+  images QuizQuestionImage[]
+
+  @@index([quizId])
+}
+
+model QuizQuestionImage {
+  id               String                  @id @default(uuid()) @db.Uuid
+  questionId       String                  @db.Uuid
+  slot             QuizQuestionImageSlot
+  fileKey          String                  @unique
+  fileMimeType     String
+  fileSize         Int
+  originalFileName String
+  createdAt        DateTime                @default(now())
+
+  question QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, slot])
+}
+
+model QuizAttempt {
+  id                  String            @id @default(uuid()) @db.Uuid
+  quizId              String            @db.Uuid
+  studentId           String            @db.Uuid
+  startedAt           DateTime          @default(now())
+  submittedAt         DateTime?
+  status              QuizAttemptStatus @default(in_progress)
+  score               Float?
+  tabSwitchCount      Int               @default(0)
+  fullscreenExitCount Int               @default(0)
+  suspiciousActivity  Boolean           @default(false)
+
+  quiz             Quiz              @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  student          Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  answers          QuizAnswer[]
+  proctoringEvents ProctoringEvent[]
+  bookmarks QuizBookmark[]
+
+  @@index([quizId])
+  @@index([studentId])
+}
+
+model QuizAnswer {
+  id             String   @id @default(uuid()) @db.Uuid
+  attemptId      String   @db.Uuid
+  questionId     String   @db.Uuid
+  selectedOption String
+  isCorrect      Boolean?
+  marksAwarded   Float?
+
+  attempt  QuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
+}
+
+model QuizBookmark {
+  id         String   @id @default(uuid()) @db.Uuid
+  attemptId  String   @db.Uuid
+  questionId String   @db.Uuid
+  createdAt  DateTime @default(now())
+
+  attempt  QuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
+  @@index([attemptId])
+}
+
+model ProctoringEvent {
+  id         String              @id @default(uuid()) @db.Uuid
+  attemptId  String              @db.Uuid
+  type       ProctoringEventType
+  occurredAt DateTime            @default(now())
+  metadata   String?
+
+  attempt QuizAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId])
+}

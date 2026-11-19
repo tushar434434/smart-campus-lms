@@ -9,6 +9,7 @@ interface AuthState {
   login: (input: LoginInput) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
   logout: () => void;
+  updateSessionUser: (user: User) => void;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -43,8 +44,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null);
   }
 
+  function updateSessionUser(nextUser: User) {
+    setUser(nextUser);
+  }
+
   const value = useMemo(
-    () => ({ user, token, login, register, logout }),
+    () => ({ user, token, login, register, logout, updateSessionUser }),
     [user, token],
   );
 

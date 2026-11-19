@@ -6,6 +6,7 @@ import {
   waitFor,
 } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import { QuizzesPage } from './QuizzesPage';
 
 const mocks = vi.hoisted(() => ({
@@ -13,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   listEnrolledCourses: vi.fn(),
   listTeachingCourses: vi.fn(),
   listByCourse: vi.fn(),
+  listMine: vi.fn(),
   questions: vi.fn(),
   useAuth: vi.fn(),
 }));
@@ -25,6 +27,7 @@ vi.mock('../api/courses.api', () => ({
 vi.mock('../api/quizzes.api', () => ({
   quizzesApi: {
     listByCourse: mocks.listByCourse,
+    listMine: mocks.listMine,
     questions: mocks.questions,
   },
 }));
@@ -84,20 +87,38 @@ describe('student quiz visibility', () => {
     mocks.listEnrolledCourses.mockResolvedValue([enrolledCourse]);
     mocks.listAllCourses.mockResolvedValue([catalogCourse, enrolledCourse]);
     mocks.listByCourse.mockResolvedValue([publishedQuiz]);
+    mocks.listMine.mockResolvedValue([publishedQuiz]);
     mocks.questions.mockResolvedValue([]);
   });
 
   it('loads enrolled courses and shows published quizzes to students', async () => {
-    render(<QuizzesPage />);
+    render(
+      <MemoryRouter>
+        <QuizzesPage />
+      </MemoryRouter>,
+    );
     expect(await screen.findByText('Midterm quiz')).toBeTruthy();
     await waitFor(() => {
       expect(mocks.listEnrolledCourses).toHaveBeenCalledWith('student-token');
       expect(mocks.listAllCourses).not.toHaveBeenCalled();
-      expect(mocks.listByCourse).toHaveBeenCalledWith(
-        enrolledCourse.id,
-        'student-token',
-      );
+      expect(mocks.listMine).toHaveBeenCalledWith('student-token');
+      expect(mocks.listByCourse).not.toHaveBeenCalled();
     });
     expect(screen.queryByText('Other Catalog Course')).toBeNull();
+  });
+
+  it('opens a requested published quiz from the dashboard deep link', async () => {
+    mocks.questions.mockResolvedValue([]);
+    render(
+      <MemoryRouter initialEntries={['/quizzes?quizId=quiz-published']}>
+        <QuizzesPage />
+      </MemoryRouter>,
+    );
+
+    expect((await screen.findAllByText('Midterm quiz')).length).toBeGreaterThan(0);
+    await waitFor(() => {
+      expect(mocks.questions).toHaveBeenCalledWith('quiz-published', 'student-token');
+    });
+    expect(screen.getByText('QUIZ DETAILS')).toBeTruthy();
   });
 });

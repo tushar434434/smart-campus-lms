@@ -1,0 +1,18 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+/src/generated/prisma/
+# Generated Prisma AI skills
+.agents/
+.claude/
+.cursor/
+.devin/
+.windsurf/
+skills-lock.json
+# Runtime uploads (never commit user-uploaded files)
+var/private-uploads/
+# Runtime uploads (never commit user-uploaded files)
+var/private-uploads/

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type FormEvent } from 'react';
 import { ArrowLeft, ArrowRight, Bookmark, Check, Clock3, Plus, ShieldCheck, Trash2, Trophy } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { ApiError } from '../api/client';
 import { listAllCourses, listEnrolledCourses, listTeachingCourses } from '../api/courses.api';
 import { quizzesApi, type QuestionInput, type QuizInput } from '../api/quizzes.api';
@@ -26,6 +27,8 @@ function readError(caught: unknown, fallback: string) {
 
 export function QuizzesPage() {
   const { user, token } = useAuth();
+  const [searchParams] = useSearchParams();
+  const requestedQuizId = searchParams.get('quizId');
   const [courses, setCourses] = useState<Course[]>([]);
   const [courseId, setCourseId] = useState('');
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
@@ -72,7 +75,10 @@ export function QuizzesPage() {
       .then((result) => {
         if (!active) return;
         setCourses(result);
-        setCourseId((current) => current || result[0]?.id || '');
+        setCourseId((current) => {
+          if (user?.role === 'student') return current;
+          return current || result[0]?.id || '';
+        });
       })
       .catch((caught: unknown) => { if (active) setError(readError(caught, 'Unable to load courses.')); })
       .finally(() => { if (active) setLoading(false); });
@@ -80,7 +86,8 @@ export function QuizzesPage() {
   }, [token, user?.role]);
 
   useEffect(() => {
-    if (!token || !courseId) {
+    if (!token) return;
+    if (user?.role !== 'student' && !courseId) {
       setQuizzes([]);
       setSelected(null);
       setQuestions([]);
@@ -90,17 +97,37 @@ export function QuizzesPage() {
     let active = true;
     setLoading(true);
     setError('');
-    quizzesApi.listByCourse(courseId, token)
+    const load =
+      user?.role === 'student'
+        ? quizzesApi.listMine(token).then((result) =>
+            courseId
+              ? result.filter((quiz) => quiz.courseId === courseId)
+              : result,
+          )
+        : quizzesApi.listByCourse(courseId, token);
+    load
       .then((result) => {
         if (!active) return;
         setQuizzes(result);
-        setSelected(null);
-        setQuestions([]);
+        const requested = requestedQuizId
+          ? result.find((quiz) => quiz.id === requestedQuizId)
+          : undefined;
+        if (requested) {
+          setSelected(requested);
+          setQuestionsLoading(true);
+          quizzesApi.questions(requested.id, token)
+            .then((quizQuestions) => { if (active) setQuestions(quizQuestions); })
+            .catch((caught: unknown) => { if (active) setError(readError(caught, 'Unable to load quiz questions.')); })
+            .finally(() => { if (active) setQuestionsLoading(false); });
+        } else {
+          setSelected(null);
+          setQuestions([]);
+        }
       })
       .catch((caught: unknown) => { if (active) setError(readError(caught, 'Unable to load quizzes.')); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [courseId, token]);
+  }, [courseId, requestedQuizId, token, user?.role]);
 
   async function selectQuiz(quiz: Quiz) {
     if (!token) return;
@@ -126,8 +153,14 @@ export function QuizzesPage() {
   }
 
   async function refreshSelected() {
-    if (!token || !courseId) return;
-    const result = await quizzesApi.listByCourse(courseId, token);
+    if (!token) return;
+    if (user?.role !== 'student' && !courseId) return;
+    const result =
+      user?.role === 'student'
+        ? (await quizzesApi.listMine(token)).filter((quiz) =>
+            courseId ? quiz.courseId === courseId : true,
+          )
+        : await quizzesApi.listByCourse(courseId, token);
     setQuizzes(result);
     if (selected) {
       const current = result.find((quiz) => quiz.id === selected.id);
@@ -361,7 +394,8 @@ export function QuizzesPage() {
       <div className="course-filter">
         <label htmlFor="quiz-course">Course</label>
         <select className="form-input" id="quiz-course" value={courseId} onChange={(event) => setCourseId(event.target.value)}>
-          {courses.length === 0 && <option value="">No courses available</option>}
+          {user?.role === 'student' && <option value="">All enrolled courses</option>}
+          {courses.length === 0 && user?.role !== 'student' && <option value="">No courses available</option>}
           {courses.map((course) => <option key={course.id} value={course.id}>{course.code} — {course.title}</option>)}
         </select>
       </div>

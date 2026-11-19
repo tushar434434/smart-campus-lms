@@ -1,0 +1,97 @@
+﻿export type ProctoringEventType =
+  | 'tab_switch'
+  | 'fullscreen_exit'
+  | 'fullscreen_enter'
+  | 'visibility_hidden'
+  | 'visibility_visible'
+  | 'quiz_started'
+  | 'quiz_submitted'
+  | 'time_expired';
+
+export interface ProctoringEventInput {
+  attemptId: string;
+  type: ProctoringEventType;
+  occurredAt?: Date;
+  metadata?: string;
+}
+export type QuizAttemptStatus =
+  'in_progress' | 'submitted' | 'auto_submitted' | 'flagged';
+
+export type QuizOption = 'A' | 'B' | 'C' | 'D';
+
+export interface QuizAttempt {
+  id: string;
+  quizId: string;
+  studentId: string;
+  startedAt: Date;
+  submittedAt: Date | null;
+  status: QuizAttemptStatus;
+  score: number | null;
+  tabSwitchCount: number;
+  fullscreenExitCount: number;
+  suspiciousActivity: boolean;
+}
+
+export interface QuizQuestionForAttempt {
+  id: string;
+  quizId: string;
+  questionText: string;
+  questionType: 'multiple_choice' | 'true_false';
+  optionA: string;
+  optionB: string;
+  optionC: string;
+  optionD: string;
+  marks: number;
+  imageSlots?: Array<
+    'question' | 'optionA' | 'optionB' | 'optionC' | 'optionD'
+  >;
+  selectedOption?: QuizOption;
+  bookmarked?: boolean;
+}
+
+export interface QuizAnswerInput {
+  attemptId: string;
+  questionId: string;
+  selectedOption: QuizOption;
+}
+
+export interface QuizAttemptAnswerResult {
+  questionId: string;
+  selectedOption: QuizOption;
+  correctOption: QuizOption;
+  marks: number;
+  marksAwarded: number;
+}
+
+export interface QuizAttemptRepository {
+  start(quizId: string, studentId: string): Promise<QuizAttempt>;
+
+  findById(id: string): Promise<QuizAttempt | undefined>;
+
+  findByQuizId(quizId: string): Promise<QuizAttempt[]>;
+
+  findByStudentId(studentId: string): Promise<QuizAttempt[]>;
+
+  countByQuizAndStudent(quizId: string, studentId: string): Promise<number>;
+
+  findQuestions(quizId: string): Promise<QuizQuestionForAttempt[]>;
+
+  saveAnswer(input: QuizAnswerInput): Promise<void>;
+
+  setBookmark(
+    attemptId: string,
+    questionId: string,
+    bookmarked: boolean,
+  ): Promise<void>;
+
+  findBookmarkedQuestionIds(attemptId: string): Promise<string[]>;
+
+  findAnswersByAttemptId(attemptId: string): Promise<QuizAttemptAnswerResult[]>;
+
+  submit(
+    id: string,
+    status?: 'submitted' | 'auto_submitted',
+  ): Promise<QuizAttempt | undefined>;
+
+  recordProctoringEvent(input: ProctoringEventInput): Promise<QuizAttempt>;
+}

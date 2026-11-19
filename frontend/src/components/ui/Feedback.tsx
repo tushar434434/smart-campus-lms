@@ -53,11 +53,13 @@ export function Modal({
   onClose,
   children,
   wide = false,
+  fullscreen = false,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
   wide?: boolean;
+  fullscreen?: boolean;
 }) {
   const dialogRef = useRef<HTMLElement>(null);
   const closeRef = useRef(onClose);
@@ -101,7 +103,7 @@ export function Modal({
       if (event.target === event.currentTarget) onClose();
     }}>
       <section
-        className={`modal ${wide ? 'modal-wide' : ''}`}
+        className={`modal ${wide ? 'modal-wide' : ''} ${fullscreen ? 'modal-fullscreen' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-label={title}

@@ -2,7 +2,11 @@
 
 ## Completed task IDs
 
-T1, T2, T3, T4, T12, T13
+T1, T2, T3, T4, T12, T13, T14, T15, T16
+
+## T16 status
+
+Completed. Root cause was that `DashboardPage.tsx` bundled published quiz retrieval with student assignment and attempt activity in a single `Promise.all()`, causing failure in any one request (or an unrelated 403) to prevent published quizzes from displaying and falsely flag student profiles as missing. We separated published quiz loading from assignment and attempt activity loading using `Promise.allSettled()`, added specific detection for student-profile linking errors (`STUDENT_NOT_LINKED`), ensured failure of activity endpoints does not block published quizzes, preserved useful error notices, added dashboard regression tests, and verified end-to-end quiz dashboard accessibility.
 
 ## Remaining task IDs
 
@@ -10,28 +14,21 @@ T5 (bulk import), T6 (email verification), T7 (object storage), T8 (a11y audit),
 
 ## Last modified files
 
-- `backend/src/modules/students/student.service.ts`
-- `backend/src/modules/students/student.prisma.repository.ts`
-- `backend/src/modules/enrollments/enrollment.service.ts`
-- `backend/src/modules/quizzes/quiz.service.ts`
-- `backend/src/modules/quiz-attempts/quiz-attempt.routes.ts`
-- `backend/src/modules/auth/auth.service.ts`
-- `backend/src/container.ts`
-- `backend/src/test-container.ts`
-- `backend/src/app.ts`
-- `backend/tests/student.service.test.ts`
-- `backend/tests/quiz-attempt.routes.test.ts`
-- `backend/tests/quiz-attempt.service.test.ts`
-- `backend/tests/quiz-attempt.workflow.test.ts`
+- `frontend/src/pages/DashboardPage.tsx`
+- `frontend/src/pages/DashboardPage.test.tsx`
+- `IMPLEMENTATION_TRACKER.md`
 - `backend/tests/quiz.service.test.ts`
+- `DEVELOPMENT_HANDOFF.md`
+
+
 
 ## Tests executed
 
-Backend (T13 quiz attempt access):
+Backend (quiz routes, services, attempts, and full test suite):
 
 ```
 cd backend
-npx vitest run tests/student.service.test.ts tests/quiz-attempt.routes.test.ts tests/quiz-attempt.service.test.ts tests/quiz-attempt.workflow.test.ts tests/quiz.service.test.ts
+npx vitest run tests/quiz.routes.test.ts tests/quiz.service.test.ts tests/quiz-attempt.routes.test.ts tests/quiz-attempt.workflow.test.ts
 npx tsc --noEmit --project tsconfig.build.json
 npm run build
 ```
@@ -40,13 +37,14 @@ Frontend:
 
 ```
 cd frontend
-npx tsc -b --pretty false
-npx vite build
+npm test
+npm run build
+npm run lint
 ```
 
 ## Known bugs
 
-Valid students could not start quizzes when a Student profile existed with the same email but `userId` was still null (register/create did not link). Attempt start also turned Prisma `STUDENT_NOT_ENROLLED` / `QUIZ_NOT_PUBLISHED` into 500s. Fixed by unique email auto-link (student role, not suspended, profile unlinked) plus mapped 403s. Approved enrollment is still required.
+Students only saw quizzes for one selected course, so newly published quizzes on other enrolled courses did not show. `GET /quizzes/me` now returns every published quiz on approved enrollments as soon as faculty publishes. Unenrolled students get an empty list; staff cannot use that endpoint. Missing question image files still return 404 after the disk-storage fix.
 
 ## Exact next task
 
@@ -62,5 +60,3 @@ npm test
 cd ../frontend
 npm test
 ```
-
-Apply migration `20261106120000_account_suspension_quiz_active_attempt` before using suspension or concurrent quiz-start against PostgreSQL.

@@ -9,13 +9,16 @@ export default defineConfig(({ mode }) => {
   const proxy = Object.fromEntries(
     [
       '/auth',
+      '/admin',
       '/courses',
+      '/course-materials',
       '/students',
       '/enrollments',
       '/assignments',
       '/submissions',
       '/quizzes',
       '/attempts',
+      '/reports',
       '/health',
     ].map((path) => [path, { target, changeOrigin: true }]),
   );

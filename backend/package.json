@@ -1,0 +1,53 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "Smart Campus LMS backend",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc --project tsconfig.build.json",
+    "admin:bootstrap": "tsx scripts/bootstrap-admin.ts",
+    "start": "node dist/server.js",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "postinstall": "prisma skills sync || exit 0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@fastify/cors": "^11.4.3",
+    "@fastify/jwt": "^10.2.2",
+    "@fastify/multipart": "^10.1.6",
+    "@fastify/rate-limit": "^11.2.1",
+    "@fastify/swagger": "^9.9.1",
+    "@fastify/swagger-ui": "^6.1.1",
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
+    "@types/node": "^26.6.3",
+    "bcrypt": "^6.0.0",
+    "exceljs": "^4.4.0",
+    "fastify": "^5.12.7",
+    "nodemailer": "^10.2.1",
+    "pdfkit": "^0.20.2",
+    "pg": "^8.23.1",
+    "prisma": "^7.10.0",
+    "tsx": "^4.23.15",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/bcrypt": "^6.0.0",
+    "@types/pdfkit": "^0.17.7",
+    "@types/pg": "^8.23.1",
+    "eslint": "^10.11.0",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.9",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^5.0.3"
+  }
+}

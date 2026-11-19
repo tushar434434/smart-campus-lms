@@ -1,0 +1,328 @@
+import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { randomUUID } from 'node:crypto';
+
+import { createTestContainer } from '../src/test-container.js';
+import { buildApp } from '../src/app.js';
+
+describe('Assignment Routes', () => {
+  const container = createTestContainer();
+  const app = buildApp(container);
+
+  let facultyToken: string;
+  let studentToken: string;
+  let adminToken: string;
+  let courseId: string;
+  let studentRecordId: string;
+
+  // Generate a unique, schema-valid course code.
+  let courseCodeCounter = 1000;
+
+  const validAssignment = (id: string) => ({
+    courseId: id,
+    title: 'Data Structures Assignment',
+    description: 'Complete the assigned programming problems',
+    dueAt: new Date(Date.now() + 86_400_000).toISOString(),
+    maxMarks: 100,
+  });
+
+  beforeEach(async () => {
+    await app.ready();
+
+    facultyToken = app.jwt.sign({
+      sub: 'faculty-test-id',
+      role: 'faculty',
+    });
+
+    adminToken = app.jwt.sign({
+      sub: 'admin-test-id',
+      role: 'admin',
+    });
+
+    // CS1001, CS1002, etc. Match /^[A-Z]{2,5}[0-9]{3,4}$/.
+    courseCodeCounter += 1;
+
+    const courseResponse = await app.inject({
+      method: 'POST',
+      url: '/courses',
+      headers: {
+        authorization: `Bearer ${facultyToken}`,
+      },
+      payload: {
+        title: 'Data Structures',
+        code: `CS${courseCodeCounter}`,
+        credits: 4,
+      },
+    });
+
+    expect(
+      courseResponse.statusCode,
+      `Course setup failed: ${courseResponse.body}`,
+    ).toBe(201);
+
+    courseId = courseResponse.json().data.id;
+
+    const approvalResponse = await app.inject({
+      method: 'POST',
+      url: `/admin/courses/${courseId}/approve`,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    expect(approvalResponse.statusCode).toBe(200);
+
+    const studentResponse = await app.inject({
+      method: 'POST',
+      url: '/students',
+      headers: { authorization: `Bearer ${facultyToken}` },
+      payload: {
+        name: 'Assignment Student',
+        email: `assignment-${randomUUID()}@example.test`,
+        department: 'Computer Science',
+        semester: 4,
+      },
+    });
+    studentRecordId = studentResponse.json().data.id;
+    const studentUser = await container.authRepository.create({
+      name: 'Assignment Student',
+      email: `assignment-user-${randomUUID()}@example.test`,
+      passwordHash: 'test-hash',
+      role: 'student',
+    });
+    await container.studentService.linkStudentUser(
+      studentRecordId,
+      studentUser.id,
+    );
+    studentToken = app.jwt.sign({ sub: studentUser.id, role: 'student' });
+    await container.enrollmentRepository.create({
+      studentId: studentRecordId,
+      courseId,
+      status: 'approved',
+    });
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('should create an assignment', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/assignments',
+      headers: {
+        authorization: `Bearer ${facultyToken}`,
+      },
+      payload: validAssignment(courseId),
+    });
+
+    expect(response.statusCode, response.body).toBe(201);
+    expect(response.json().data.title).toBe('Data Structures Assignment');
+  });
+
+  it('should reject invalid assignment input', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/assignments',
+      headers: {
+        authorization: `Bearer ${facultyToken}`,
+      },
+      payload: {
+        ...validAssignment(courseId),
+        title: '',
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('should return 404 for an assignment with a nonexistent course', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/assignments',
+      headers: {
+        authorization: `Bearer ${facultyToken}`,
+      },
+      payload: validAssignment(randomUUID()),
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error.code).toBe('COURSE_NOT_FOUND');
+  });
+
+  it('should retrieve assignments for a course', async () => {
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/assignments',
+      headers: {
+        authorization: `Bearer ${facultyToken}`,
+      },
+      payload: validAssignment(courseId),
+    });
+
+    expect(createResponse.statusCode, createResponse.body).toBe(201);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/assignments/course/${courseId}`,
+      headers: {
+        authorization: `Bearer ${studentToken}`,
+      },
+    });
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data).toHaveLength(1);
+  });
+
+  it('lets authorized course members view/download an assignment file and rejects spoofed content', async () => {
+    const assignmentResponse = await app.inject({
+      method: 'POST',
+      url: '/assignments',
+      headers: { authorization: `Bearer ${facultyToken}` },
+      payload: validAssignment(courseId),
+    });
+    const assignmentId = assignmentResponse.json().data.id as string;
+    const boundary = 'assignment-file-boundary';
+    const pdf = '%PDF-1.7\nassignment brief';
+    const multipart = [
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="file"; filename="brief.pdf"',
+      'Content-Type: application/pdf',
+      '',
+      pdf,
+      `--${boundary}--`,
+      '',
+    ].join('\r\n');
+
+    const uploaded = await app.inject({
+      method: 'PUT',
+      url: `/assignments/${assignmentId}/file`,
+      headers: {
+        authorization: `Bearer ${facultyToken}`,
+        'content-type': `multipart/form-data; boundary=${boundary}`,
+      },
+      payload: multipart,
+    });
+    expect(uploaded.statusCode, uploaded.body).toBe(200);
+    expect(uploaded.json().data.file).toMatchObject({
+      originalFileName: 'brief.pdf',
+      mimeType: 'application/pdf',
+    });
+
+    const viewed = await app.inject({
+      method: 'GET',
+      url: `/assignments/${assignmentId}/file`,
+      headers: { authorization: `Bearer ${studentToken}` },
+    });
+    expect(viewed.statusCode).toBe(200);
+    expect(viewed.headers['content-disposition']).toContain('inline');
+    expect(viewed.body).toContain(pdf);
+
+    const downloaded = await app.inject({
+      method: 'GET',
+      url: `/assignments/${assignmentId}/file?download=true`,
+      headers: { authorization: `Bearer ${studentToken}` },
+    });
+    expect(downloaded.headers['content-disposition']).toContain('attachment');
+
+    const invalid = await app.inject({
+      method: 'PUT',
+      url: `/assignments/${assignmentId}/file`,
+      headers: {
+        authorization: `Bearer ${facultyToken}`,
+        'content-type': `multipart/form-data; boundary=${boundary}`,
+      },
+      payload: multipart.replace(pdf, 'not a pdf'),
+    });
+    expect(invalid.statusCode).toBe(400);
+  });
+
+  it('should return 404 for a nonexistent assignment', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: `/assignments/${randomUUID()}`,
+      headers: {
+        authorization: `Bearer ${studentToken}`,
+      },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error.code).toBe('ASSIGNMENT_NOT_FOUND');
+  });
+
+  it('should update an assignment', async () => {
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/assignments',
+      headers: {
+        authorization: `Bearer ${facultyToken}`,
+      },
+      payload: validAssignment(courseId),
+    });
+
+    expect(createResponse.statusCode, createResponse.body).toBe(201);
+
+    const assignmentId = createResponse.json().data.id;
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: `/assignments/${assignmentId}`,
+      headers: {
+        authorization: `Bearer ${facultyToken}`,
+      },
+      payload: {
+        title: 'Updated Assignment',
+      },
+    });
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().data.title).toBe('Updated Assignment');
+  });
+
+  it('should delete an assignment as an admin', async () => {
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/assignments',
+      headers: {
+        authorization: `Bearer ${facultyToken}`,
+      },
+      payload: validAssignment(courseId),
+    });
+
+    expect(createResponse.statusCode, createResponse.body).toBe(201);
+
+    const assignmentId = createResponse.json().data.id;
+
+    const response = await app.inject({
+      method: 'DELETE',
+      url: `/assignments/${assignmentId}`,
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+      },
+    });
+
+    expect(response.statusCode).toBe(204);
+  });
+
+  it('should forbid faculty from deleting an assignment', async () => {
+    const response = await app.inject({
+      method: 'DELETE',
+      url: `/assignments/${randomUUID()}`,
+      headers: {
+        authorization: `Bearer ${facultyToken}`,
+      },
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  it('should return 404 when deleting a nonexistent assignment as admin', async () => {
+    const response = await app.inject({
+      method: 'DELETE',
+      url: `/assignments/${randomUUID()}`,
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+      },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error.code).toBe('ASSIGNMENT_NOT_FOUND');
+  });
+});

@@ -45,7 +45,7 @@ npm audit
 ## Integration notes
 
 - API calls use the backend's `/auth`, `/courses`, `/students`,
-  `/enrollments`, `/assignments`, `/submissions`, `/quizzes`, and quiz-attempt
+  `/admin`, `/enrollments`, `/assignments`, `/submissions`, `/quizzes`, and quiz-attempt
   routes. Request and response shapes are typed in `src/types/api.ts`.
 - JWTs are kept in memory only. Refreshing the page clears the session; a 401
   response signs the user out. Sign in again to continue.
@@ -59,5 +59,18 @@ npm audit
   The interface identifies these limits rather than inventing records or data.
 - Student-facing quiz result details follow the backend's release policy. The
   correct option is not included in the attempt question endpoint.
+- Public registration creates student accounts only. Administrators can search
+  users, view basic account details, assign roles, and review role-change
+  history from User management. The administrator overview uses protected API
+  totals for users by role, courses, assignments, and quizzes, plus recent
+  registrations and role changes. Account status is not shown because the
+  backend schema does not currently have an account-status field.
+- The protected admin APIs include `GET /admin/dashboard/stats`,
+  `GET /admin/users`, `GET /admin/users/:userId`,
+  `PATCH /admin/users/:userId/role`, and
+  `GET /admin/role-audit-logs`. The backend verifies the current administrator
+  role on every request.
+- Password recovery uses emailed one-time codes. The OTP and temporary reset
+  authorization stay in component memory and are not written to browser storage.
 - The backend does not currently register CORS. The Vite development proxy
   handles local browser access without changing backend files.
