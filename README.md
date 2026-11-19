@@ -163,3 +163,26 @@ npm run build                      # TypeScript check and production bundle buil
 - File uploads for assignments, course materials, and quiz illustrations are validated for MIME type, file extension, and size limits (10 MiB) and served with `private, no-store` caching headers.
 - Student account linking enforces uniqueness to prevent profile collision or unauthorized record access.
 - Suspended user accounts are immediately denied login and token authentication.
+
+## Live Deployment
+
+- **Frontend (Vercel):** https://smart-campus-lms-gold.vercel.app
+- **Backend API (Render):** https://smart-campus-lms.onrender.com
+- **Database:** PostgreSQL (Neon) with Prisma ORM
+
+## Application Screenshots
+
+### 1. Authentication & Sign-In
+![Smart Campus LMS Login](docs/screenshots/01-login.png)
+
+### 2. Workspace Overview & Course Catalog
+![Workspace Overview](docs/screenshots/02-workspace-overview.png)
+
+### 3. Admin Campus Overview
+![Admin Overview](docs/screenshots/03-admin-overview.png)
+
+### 4. Assessment Center — Quizzes & Results
+![Quizzes Management](docs/screenshots/04-quizzes.png)
+
+### 5. Coursework — Assignments & Submissions
+![Assignments Management](docs/screenshots/05-assignments.png)
