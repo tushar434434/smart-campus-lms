@@ -5,7 +5,8 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "tsc --project tsconfig.build.json",
+    "admin:bootstrap": "tsx scripts/bootstrap-admin.ts",
     "start": "node dist/server.js",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -27,6 +28,7 @@
     "@types/node": "^26.6.3",
     "bcrypt": "^6.0.0",
     "fastify": "^5.12.5",
+    "nodemailer": "^10.2.1",
     "pg": "^8.23.1",
     "prisma": "^7.10.0",
     "tsx": "^4.23.15",

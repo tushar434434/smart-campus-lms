@@ -50,7 +50,43 @@ model User {
   role         UserRole
   createdAt    DateTime @default(now())
 
-  student Student?
+  student             Student?
+  actedRoleChanges    RoleAuditLog[]       @relation("RoleChangeActor")
+  receivedRoleChanges RoleAuditLog[]       @relation("RoleChangeTarget")
+  passwordResets      PasswordResetToken[]
+}
+
+model RoleAuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  actorId      String   @db.Uuid
+  targetId     String   @db.Uuid
+  previousRole UserRole
+  newRole      UserRole
+  createdAt    DateTime @default(now())
+
+  actor  User @relation("RoleChangeActor", fields: [actorId], references: [id], onDelete: Restrict)
+  target User @relation("RoleChangeTarget", fields: [targetId], references: [id], onDelete: Restrict)
+
+  @@index([createdAt])
+  @@index([targetId, createdAt])
+}
+
+model PasswordResetToken {
+  id                  String    @id @default(uuid()) @db.Uuid
+  userId              String    @db.Uuid
+  otpHash             String
+  otpExpiresAt        DateTime
+  failedAttempts      Int       @default(0)
+  resetTokenHash      String?
+  resetTokenExpiresAt DateTime?
+  consumedAt          DateTime?
+  createdAt           DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([resetTokenHash])
+  @@index([otpExpiresAt])
 }
 
 model Student {

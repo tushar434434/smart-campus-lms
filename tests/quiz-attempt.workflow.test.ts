@@ -22,6 +22,7 @@ describe('Quiz attempt API workflow', () => {
       code: 'WF-TEST',
       credits: 3,
     });
+    await container.courseService.approve(course.id, 'workflow-admin');
 
     const student = await container.studentRepository.create({
       name: 'Workflow Test Student',
@@ -48,6 +49,7 @@ describe('Quiz attempt API workflow', () => {
     await container.enrollmentRepository.create({
       studentId,
       courseId: course.id,
+      status: 'approved',
     });
 
     const quiz = await container.quizRepository.create({
@@ -128,5 +130,155 @@ describe('Quiz attempt API workflow', () => {
 
     // Marks are hidden until the quiz releases results.
     expect(submitResponse.json().data.score).toBeNull();
+  });
+});
+
+describe('Quiz attempt student access', () => {
+  it('lets a matching unlinked student start after approved enrollment', async () => {
+    const container = createTestContainer();
+    const app = buildApp(container as never);
+    await app.ready();
+
+    const course = await container.courseRepository.create({
+      title: 'Access Course',
+      code: 'ACCESS-1',
+      credits: 3,
+    });
+    await container.courseService.approve(course.id, 'access-admin');
+    const student = await container.studentRepository.create({
+      name: 'Matching Student',
+      email: 'matching-student@example.test',
+      department: 'CSE',
+      semester: 4,
+    });
+    const account = await container.authRepository.create({
+      name: 'Matching Student',
+      email: 'matching-student@example.test',
+      passwordHash: 'unused',
+      role: 'student',
+    });
+    await container.enrollmentRepository.create({
+      studentId: student.id,
+      courseId: course.id,
+      status: 'approved',
+    });
+    const quiz = await container.quizRepository.create({
+      courseId: course.id,
+      title: 'Access Quiz',
+      description: 'Published assessment',
+      durationMinutes: 20,
+      maxMarks: 1,
+      maxAttempts: 1,
+    });
+    await container.quizRepository.createQuestion(quiz.id, {
+      questionText: '1 + 1?',
+      optionA: '1',
+      optionB: '2',
+      optionC: '3',
+      optionD: '4',
+      correctOption: 'B',
+      marks: 1,
+    });
+    await container.quizRepository.publish(quiz.id);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/quizzes/${quiz.id}/attempts`,
+      headers: {
+        authorization: `Bearer ${app.jwt.sign({ sub: account.id, role: 'student' })}`,
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(await container.studentRepository.findByUserId(account.id)).toMatchObject({
+      id: student.id,
+    });
+    await app.close();
+  });
+
+  it('rejects a student without a matching profile or approved enrollment', async () => {
+    const container = createTestContainer();
+    const app = buildApp(container as never);
+    await app.ready();
+
+    const course = await container.courseRepository.create({
+      title: 'Denied Course',
+      code: 'ACCESS-2',
+      credits: 3,
+    });
+    await container.courseService.approve(course.id, 'access-admin');
+    await container.studentRepository.create({
+      name: 'Other Profile',
+      email: 'other-profile@example.test',
+      department: 'CSE',
+      semester: 4,
+    });
+    const account = await container.authRepository.create({
+      name: 'Unmatched Student',
+      email: 'unmatched-student@example.test',
+      passwordHash: 'unused',
+      role: 'student',
+    });
+    const quiz = await container.quizRepository.create({
+      courseId: course.id,
+      title: 'Denied Quiz',
+      description: 'Published assessment',
+      durationMinutes: 20,
+      maxMarks: 1,
+      maxAttempts: 1,
+    });
+    await container.quizRepository.createQuestion(quiz.id, {
+      questionText: '1 + 1?',
+      optionA: '1',
+      optionB: '2',
+      optionC: '3',
+      optionD: '4',
+      correctOption: 'B',
+      marks: 1,
+    });
+    await container.quizRepository.publish(quiz.id);
+
+    const unmatched = await app.inject({
+      method: 'POST',
+      url: `/quizzes/${quiz.id}/attempts`,
+      headers: {
+        authorization: `Bearer ${app.jwt.sign({ sub: account.id, role: 'student' })}`,
+      },
+    });
+    expect(unmatched.statusCode).toBe(403);
+    expect(unmatched.json().error.code).toBe('STUDENT_NOT_LINKED');
+
+    const linkedStudent = await container.studentRepository.create({
+      name: 'Pending Student',
+      email: 'pending-student@example.test',
+      department: 'CSE',
+      semester: 4,
+    });
+    const pendingAccount = await container.authRepository.create({
+      name: 'Pending Student',
+      email: 'pending-student@example.test',
+      passwordHash: 'unused',
+      role: 'student',
+    });
+    await container.studentRepository.linkUser(linkedStudent.id, pendingAccount.id);
+    await container.enrollmentRepository.create({
+      studentId: linkedStudent.id,
+      courseId: course.id,
+      status: 'pending',
+    });
+
+    const pending = await app.inject({
+      method: 'POST',
+      url: `/quizzes/${quiz.id}/attempts`,
+      headers: {
+        authorization: `Bearer ${app.jwt.sign({
+          sub: pendingAccount.id,
+          role: 'student',
+        })}`,
+      },
+    });
+    expect(pending.statusCode).toBe(403);
+    expect(pending.json().error.code).toBe('NOT_ENROLLED');
+    await app.close();
   });
 });

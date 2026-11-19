@@ -19,12 +19,12 @@ export interface LinkableStudentAccountPage {
 export interface StudentInput {
   name: string;
   email: string;
-  enrollmentNumber: string;
   department: string;
   semester: number;
 }
 
 export const studentsApi = {
+  getMe: (token: string) => apiRequest<Student>('/students/me', { token }),
   list: (page: number, search: string, token: string) => {
     const query = new URLSearchParams({ page: String(page), limit: '10' });
     if (search.trim()) query.set('search', search.trim());
@@ -70,5 +70,10 @@ export const studentsApi = {
       method: 'PATCH',
       token,
       body: { userId },
+    }),
+  unlinkUser: (studentId: string, token: string) =>
+    apiRequest<Student>(`/students/${studentId}/unlink-user`, {
+      method: 'PATCH',
+      token,
     }),
 };

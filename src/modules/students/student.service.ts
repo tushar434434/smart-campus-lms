@@ -9,8 +9,42 @@ import type {
   UpdateStudentInput,
 } from './student.schema.js';
 
-import { InMemoryStudentRepository } from './student.repository.js';
+import {
+  InMemoryStudentRepository,
+  type Student,
+} from './student.repository.js';
 import type { StudentRepository } from './student.repository.interface.js';
+
+export async function resolveStudentForUser(
+  userId: string,
+  repository: StudentRepository,
+  authRepository?: Pick<AuthRepository, 'findById'>,
+): Promise<Student | undefined> {
+  const linked = await repository.findByUserId(userId);
+  if (linked) {
+    return linked;
+  }
+
+  if (!authRepository) {
+    return undefined;
+  }
+
+  const account = await authRepository.findById(userId);
+  if (!account || account.role !== 'student' || account.suspendedAt) {
+    return undefined;
+  }
+
+  const student = await repository.findByEmail(account.email);
+  if (!student || student.userId) {
+    return undefined;
+  }
+
+  try {
+    return await repository.linkUser(student.id, userId);
+  } catch {
+    return undefined;
+  }
+}
 
 export function createStudentService(
   repository: StudentRepository,
@@ -114,6 +148,29 @@ export function createStudentService(
       return linked;
     },
 
+    async unlinkStudentUser(studentId: string) {
+      const student = await repository.findById(studentId);
+      if (!student) {
+        throw new AppError('Student not found', 404, 'STUDENT_NOT_FOUND');
+      }
+      if (!student.userId) {
+        throw new AppError(
+          'Student does not have a linked account',
+          409,
+          'STUDENT_NOT_LINKED',
+        );
+      }
+      const unlinked = await repository.unlinkUser(studentId);
+      if (!unlinked) {
+        throw new AppError(
+          'Could not unlink student account',
+          409,
+          'STUDENT_UNLINK_FAILED',
+        );
+      }
+      return unlinked;
+    },
+
     async deleteStudent(id: string) {
       const deleted = await repository.delete(id);
 
@@ -125,7 +182,8 @@ export function createStudentService(
     },
 
     async createStudent(input: CreateStudentInput) {
-      const existingEmail = await repository.findByEmail(input.email);
+      const email = input.email.toLowerCase();
+      const existingEmail = await repository.findByEmail(email);
 
       if (existingEmail) {
         throw new AppError(
@@ -135,19 +193,27 @@ export function createStudentService(
         );
       }
 
-      const existingEnrollment = await repository.findByEnrollmentNumber(
-        input.enrollmentNumber,
-      );
-
-      if (existingEnrollment) {
-        throw new AppError(
-          'A student with this enrollment number already exists',
-          409,
-          'STUDENT_ENROLLMENT_EXISTS',
-        );
+      const created = await repository.create({ ...input, email });
+      if (!authRepository) {
+        return created;
       }
 
-      return repository.create(input);
+      const account = await authRepository.findByEmail(email);
+      if (
+        !account ||
+        account.role !== 'student' ||
+        account.suspendedAt ||
+        (await repository.findByUserId(account.id))
+      ) {
+        return created;
+      }
+
+      try {
+        const linked = await repository.linkUser(created.id, account.id);
+        return linked ?? created;
+      } catch {
+        return created;
+      }
     },
 
     async getStudentById(id: string) {
@@ -161,7 +227,11 @@ export function createStudentService(
     },
 
     async getStudentByUserId(userId: string) {
-      const student = await repository.findByUserId(userId);
+      const student = await resolveStudentForUser(
+        userId,
+        repository,
+        authRepository,
+      );
 
       if (!student) {
         throw new AppError(
@@ -174,6 +244,10 @@ export function createStudentService(
       return student;
     },
 
+    async tryLinkMatchingAccount(userId: string) {
+      return resolveStudentForUser(userId, repository, authRepository);
+    },
+
     async updateStudent(id: string, input: UpdateStudentInput) {
       const student = await repository.findById(id);
 
@@ -181,8 +255,12 @@ export function createStudentService(
         throw new AppError('Student not found', 404, 'STUDENT_NOT_FOUND');
       }
 
-      if (input.email && input.email !== student.email) {
-        const existingEmail = await repository.findByEmail(input.email);
+      if (
+        input.email &&
+        input.email.toLowerCase() !== student.email.toLowerCase()
+      ) {
+        const email = input.email.toLowerCase();
+        const existingEmail = await repository.findByEmail(email);
 
         if (existingEmail) {
           throw new AppError(
@@ -193,29 +271,9 @@ export function createStudentService(
         }
       }
 
-      if (
-        input.enrollmentNumber &&
-        input.enrollmentNumber !== student.enrollmentNumber
-      ) {
-        const existingEnrollment = await repository.findByEnrollmentNumber(
-          input.enrollmentNumber,
-        );
-
-        if (existingEnrollment) {
-          throw new AppError(
-            'A student with this enrollment number already exists',
-            409,
-            'STUDENT_ENROLLMENT_EXISTS',
-          );
-        }
-      }
-
       return repository.update(id, {
         ...(input.name !== undefined && { name: input.name }),
-        ...(input.email !== undefined && { email: input.email }),
-        ...(input.enrollmentNumber !== undefined && {
-          enrollmentNumber: input.enrollmentNumber,
-        }),
+        ...(input.email !== undefined && { email: input.email.toLowerCase() }),
         ...(input.department !== undefined && {
           department: input.department,
         }),

@@ -188,4 +188,5 @@ describe('Student account linking', () => {
     expect(screen.queryByText('database constraint details')).toBeNull();
     expect(search).toBeTruthy();
   });
+
 });

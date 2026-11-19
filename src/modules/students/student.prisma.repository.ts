@@ -11,11 +11,40 @@ import type { Student } from './student.repository.js';
 import type { StudentRepository } from './student.repository.interface.js';
 
 export class PrismaStudentRepository implements StudentRepository {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly enrollmentPrefix = process.env.STUDENT_ENROLLMENT_PREFIX?.trim() ||
+      'SC',
+  ) {}
 
   async create(input: CreateStudentInput): Promise<Student> {
-    const student = await this.prisma.student.create({
-      data: input,
+    const year = new Date().getFullYear();
+    const student = await this.prisma.$transaction(async (transaction) => {
+      const sequence = await transaction.studentEnrollmentSequence.upsert({
+        where: { year },
+        create: { year, value: 1 },
+        update: { value: { increment: 1 } },
+      });
+      let enrollmentNumber = `${this.enrollmentPrefix}${year}-${String(sequence.value).padStart(6, '0')}`;
+
+      while (
+        await transaction.student.findUnique({
+          where: { enrollmentNumber },
+          select: { id: true },
+        })
+      ) {
+        const nextSequence = await transaction.studentEnrollmentSequence.update(
+          {
+            where: { year },
+            data: { value: { increment: 1 } },
+          },
+        );
+        enrollmentNumber = `${this.enrollmentPrefix}${year}-${String(nextSequence.value).padStart(6, '0')}`;
+      }
+
+      return transaction.student.create({
+        data: { ...input, enrollmentNumber },
+      });
     });
 
     return this.toStudent(student);
@@ -30,11 +59,16 @@ export class PrismaStudentRepository implements StudentRepository {
   }
 
   async findByEmail(email: string): Promise<Student | undefined> {
-    const student = await this.prisma.student.findUnique({
-      where: { email },
+    const matches = await this.prisma.student.findMany({
+      where: { email: { equals: email, mode: 'insensitive' } },
+      take: 2,
     });
 
-    return student ? this.toStudent(student) : undefined;
+    if (matches.length !== 1) {
+      return undefined;
+    }
+
+    return this.toStudent(matches[0]!);
   }
 
   async findByEnrollmentNumber(
@@ -102,6 +136,15 @@ export class PrismaStudentRepository implements StudentRepository {
     }
   }
 
+  async unlinkUser(studentId: string): Promise<Student | undefined> {
+    const result = await this.prisma.student.updateMany({
+      where: { id: studentId, userId: { not: null } },
+      data: { userId: null },
+    });
+    if (result.count === 0) return undefined;
+    return this.findById(studentId);
+  }
+
   async update(
     id: string,
     input: UpdateStudentInput,
@@ -112,9 +155,6 @@ export class PrismaStudentRepository implements StudentRepository {
         data: {
           ...(input.name !== undefined && { name: input.name }),
           ...(input.email !== undefined && { email: input.email }),
-          ...(input.enrollmentNumber !== undefined && {
-            enrollmentNumber: input.enrollmentNumber,
-          }),
           ...(input.department !== undefined && {
             department: input.department,
           }),
