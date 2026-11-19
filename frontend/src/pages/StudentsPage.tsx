@@ -505,16 +505,6 @@ export function StudentDetailPage() {
               <Link2 size={14} /> {linking ? 'Linking…' : 'Link account'}
             </button>
           </form>}
-          {student.userId && (
-            <button
-              className="button button-outline button-small"
-              type="button"
-              disabled={busy}
-              onClick={() => void unlinkAccount()}
-            >
-              Unlink account
-            </button>
-          )}
           {linkMessage && <p className="link-success" role="status">{linkMessage}</p>}
         </article>
       </section>
