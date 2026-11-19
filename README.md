@@ -7,6 +7,7 @@ The backend emphasizes maintainable architecture, input validation, secure acces
 ## Features
 
 ### Authentication and Authorization
+
 - User registration and login
 - JWT-based authentication
 - Password hashing with bcrypt
@@ -14,12 +15,14 @@ The backend emphasizes maintainable architecture, input validation, secure acces
 - Protected API endpoints
 
 ### Academic Management
+
 - Student record management
 - Course management
 - Assignment creation and management
 - Assignment deadline and maximum-mark validation
 
 ### Submission Workflow
+
 - Create and retrieve assignment submissions
 - Update submissions with ownership and permission checks
 - Enforce assignment deadlines
@@ -28,6 +31,7 @@ The backend emphasizes maintainable architecture, input validation, secure acces
 - Return structured errors for invalid operations
 
 ### Quality and Maintainability
+
 - TypeScript static type checking
 - Zod request validation
 - Modular application structure
@@ -37,19 +41,19 @@ The backend emphasizes maintainable architecture, input validation, secure acces
 
 ## Technology Stack
 
-| Technology | Purpose |
-|---|---|
-| TypeScript | Type-safe application development |
-| Node.js | JavaScript runtime |
-| Fastify | HTTP server and API framework |
-| PostgreSQL | Relational database |
-| Prisma | Database access and schema management |
-| JWT | Authentication |
-| bcrypt | Password hashing |
-| Zod | Request validation |
-| Vitest | Automated testing |
-| ESLint | Static analysis |
-| Prettier | Code formatting |
+| Technology | Purpose                               |
+| ---------- | ------------------------------------- |
+| TypeScript | Type-safe application development     |
+| Node.js    | JavaScript runtime                    |
+| Fastify    | HTTP server and API framework         |
+| PostgreSQL | Relational database                   |
+| Prisma     | Database access and schema management |
+| JWT        | Authentication                        |
+| bcrypt     | Password hashing                      |
+| Zod        | Request validation                    |
+| Vitest     | Automated testing                     |
+| ESLint     | Static analysis                       |
+| Prettier   | Code formatting                       |
 
 ## Project Structure
 
@@ -73,7 +77,7 @@ backend/
 └── Screenshot 2026-10-26 112047.png
 ```
 
-*This is an illustrative structure; the actual repository files are authoritative.*
+_This is an illustrative structure; the actual repository files are authoritative._
 
 ## Prerequisites
 
@@ -178,16 +182,16 @@ npm run dev
 
 Run commands from the `backend` directory.
 
-| Command | Description |
-|---|---|
-| `npm run dev` | Start the development server |
-| `npm run build` | Compile TypeScript |
-| `npm start` | Run the compiled application |
-| `npm test` | Run automated tests |
-| `npm run lint` | Run ESLint |
-| `npx prettier --check .` | Check formatting |
+| Command                  | Description                  |
+| ------------------------ | ---------------------------- |
+| `npm run dev`            | Start the development server |
+| `npm run build`          | Compile TypeScript           |
+| `npm start`              | Run the compiled application |
+| `npm test`               | Run automated tests          |
+| `npm run lint`           | Run ESLint                   |
+| `npx prettier --check .` | Check formatting             |
 
-*Available scripts are defined in `package.json`.*
+_Available scripts are defined in `package.json`._
 
 ## Testing and Quality Checks
 
@@ -204,24 +208,24 @@ npx prettier --check .
 
 ### Latest Verified Test Results
 
-| Metric | Result |
-|---|---:|
-| Test files passed | 23 / 23 |
-| Tests passed | 298 / 298 |
-| Skipped tests | 0 |
-| Test duration | 54.26 seconds |
+| Metric            |        Result |
+| ----------------- | ------------: |
+| Test files passed |       23 / 23 |
+| Tests passed      |     298 / 298 |
+| Skipped tests     |             0 |
+| Test duration     | 54.26 seconds |
 
 The PostgreSQL integration tests cover database-backed quiz-attempt workflows, including answer persistence, grading, and submission behavior.
 
 **Additional quality checks:** TypeScript build, ESLint, and Prettier passed in the reported verification run.
 
-*Results reflect the latest recorded run and may change as the codebase evolves. PostgreSQL integration tests require a correctly configured test database and environment variables.*
+_Results reflect the latest recorded run and may change as the codebase evolves. PostgreSQL integration tests require a correctly configured test database and environment variables._
 
 ### Test Run Screenshot
 
 The following screenshot records the successful test run.
 
-![Smart Campus LMS backend test results](./Screenshot%202026-10-26%20112047.png)
+![Smart Campus LMS backend test results](C:\Users\tusha\smart-campus-lms\backend\Screenshot 2026-10-26 112047.png)
 
 ## API Responses
 
